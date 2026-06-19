@@ -86,6 +86,21 @@ type Config struct {
 
 	// SegmentDirections optionally overrides direction per segment (index matches segment order).
 	SegmentDirections []DirectionType
+
+	// PreventBackwardTransition rejects Viterbi candidates on a lower segment order
+	// (except loop wrap last→first when Looping is true).
+	PreventBackwardTransition bool
+
+	// MeasureRegressionToleranceMeter rejects candidates whose route measure drops
+	// more than this below the previous snap (except loop wrap). Zero disables.
+	MeasureRegressionToleranceMeter float64
+
+	// ClampBackwardMinConfidence enables post-Viterbi clamp when a backward segment
+	// slip occurs with confidence below this (0 disables clamp). Used with PreventBackwardTransition.
+	ClampBackwardMinConfidence float64
+
+	// ClampDwellSpeedKmh treats snaps at or below this speed as dwell when deciding clamp.
+	ClampDwellSpeedKmh float64
 }
 
 func DefaultConfig() Config {

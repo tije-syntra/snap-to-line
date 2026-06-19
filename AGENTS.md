@@ -39,5 +39,7 @@ This project is indexed by GitNexus as **snap-to-line** (0 symbols, 0 relationsh
 | Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
 | Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
+| Release / tag / push / bump dashboard | `.cursor/skills/snap-to-line-deploy/SKILL.md` |
+| Snap architecture & Viterbi reference | `.cursor/skills/snap-to-line-viterbi/SKILL.md` |
 
 <!-- gitnexus:end -->

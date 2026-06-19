@@ -146,20 +146,54 @@ func findCandidates(
 	return candidates
 }
 
+func isLoopWrapTransition(fromOrder, toOrder, segmentCount int, looping bool) bool {
+	if !looping || segmentCount <= 0 {
+		return false
+	}
+	return fromOrder == segmentCount && toOrder == 1
+}
+
+func rejectBackwardCandidate(state *ViterbiState, c Candidate, segmentCount int, cfg Config) bool {
+	if state.LastBest == nil || !cfg.PreventBackwardTransition {
+		return false
+	}
+
+	fromOrder := state.LastBest.Segment.Order
+	toOrder := c.Segment.Order
+	looping := cfg.Looping
+
+	if toOrder < fromOrder && !isLoopWrapTransition(fromOrder, toOrder, segmentCount, looping) {
+		return true
+	}
+
+	tol := cfg.MeasureRegressionToleranceMeter
+	if tol > 0 && c.Measure < state.LastBest.Measure-tol {
+		if !isLoopWrapTransition(fromOrder, toOrder, segmentCount, looping) {
+			return true
+		}
+	}
+	return false
+}
+
 func runViterbiStep(
 	state *ViterbiState,
 	candidates []Candidate,
 	segmentCount int,
-	looping bool,
+	cfg Config,
 ) *Candidate {
 	if len(candidates) == 0 {
 		return nil
 	}
 
 	var best *Candidate
+	looping := cfg.Looping
 
 	for i := range candidates {
 		c := candidates[i]
+		if rejectBackwardCandidate(state, c, segmentCount, cfg) {
+			continue
+		}
+
 		emissionLog := logScore(c.EmissionScore)
 		directionLog := logScore(c.DirectionScore)
 		tripLog := logScore(c.TripDirectionScore)
@@ -187,6 +221,16 @@ func runViterbiStep(
 		if best == nil || candidate.TotalLogScore > best.TotalLogScore {
 			copy := candidate
 			best = &copy
+		}
+	}
+
+	if best == nil && state.LastBest != nil && cfg.PreventBackwardTransition {
+		for i := range candidates {
+			c := candidates[i]
+			if c.Segment.Order == state.LastBest.Segment.Order {
+				copy := c
+				return &copy
+			}
 		}
 	}
 

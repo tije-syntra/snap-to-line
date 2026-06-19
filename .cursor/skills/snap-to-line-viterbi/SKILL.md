@@ -913,6 +913,8 @@ func TestClosingSegmentShouldUseEndMeasureNotFirstStopMeasure(t *testing.T) {
 
 ## Versioning GitHub
 
+> **Agent skill:** For step-by-step release/deploy (tag, push, merge main, dashboard bump), use project skill **snap-to-line-deploy** (`.cursor/skills/snap-to-line-deploy/SKILL.md`).
+
 Gunakan semantic versioning:
 
 ```txt

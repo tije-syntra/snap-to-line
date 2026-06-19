@@ -54,33 +54,24 @@ func (s *Snapper) Snap(point GPSPoint) (*SnapResult, error) {
 		}, nil
 	}
 
-	best := runViterbiStep(s.state, candidates, len(s.segments), s.config.Looping)
+	best := runViterbiStep(s.state, candidates, len(s.segments), s.config)
 	if best == nil {
-		return nil, ErrNoCandidates
+		if s.state.LastBest != nil && s.config.PreventBackwardTransition {
+			fallback := s.candidateOnSegment(s.state.LastBest.Segment, point)
+			best = &fallback
+		} else {
+			return nil, ErrNoCandidates
+		}
 	}
 
-	busBearing, hasBearing := resolveBusBearing(point, s.state.LastPoint, s.config)
-	weaken := shouldWeakenDirectionValidation(point, s.state.LastPoint, s.config)
-	_, directionDiff := scoreDirection(busBearing, hasBearing, best.LineBearing, s.config, weaken)
+	result := s.resultFromCandidate(*best, point)
 
-	if !hasBearing && s.state.LastBest != nil {
-		busBearing = s.state.LastBest.LineBearing
-	}
-
-	result := &SnapResult{
-		OriginalPoint: point.Point,
-		SnappedPoint:  best.SnappedPoint,
-		SegmentID:     best.Segment.ID,
-		SegmentOrder:  best.Segment.Order,
-		Direction:     best.Segment.Direction,
-		NearestStopID: nearestStopID(s.stops, best.SnappedPoint),
-		DistanceMeter: best.DistanceMeter,
-		Progress:      segmentProgress(best.Segment, best.Measure),
-		BusBearing:    busBearing,
-		LineBearing:   best.LineBearing,
-		DirectionDiff: directionDiff,
-		Confidence:    clampConfidence(confidenceFromScores(*best)),
-		IsOffRoute:    best.DistanceMeter > s.config.MaxSnapDistanceMeter,
+	if s.shouldClampBackward(result, point) {
+		if clamped := s.clampToPreviousSegment(point); clamped != nil {
+			result = clamped
+			fallback := s.candidateOnSegment(s.state.LastBest.Segment, point)
+			best = &fallback
+		}
 	}
 
 	s.state.LastCandidates = candidates
@@ -109,4 +100,50 @@ func (s *Snapper) Segments() []Segment {
 
 func (s *Snapper) Config() Config {
 	return s.config
+}
+
+// RouteMeasure returns cumulative distance along the route for a segment order and progress.
+func (s *Snapper) RouteMeasure(order int, progress float64) float64 {
+	for _, seg := range s.segments {
+		if seg.Order == order {
+			return seg.FromMeasure + progress*(seg.ToMeasure-seg.FromMeasure)
+		}
+	}
+	return 0
+}
+
+// SnapResultFromSegment projects a GPS point onto a specific segment and builds
+// a SnapResult without updating Viterbi state.
+func SnapResultFromSegment(seg Segment, stops []Stop, point GPSPoint, prev *GPSPoint, cfg Config) *SnapResult {
+	proj := ProjectPointOnLine(seg.Geometry, point.Point)
+	absMeasure := seg.FromMeasure + proj.Measure
+	lineBearing := BearingAtMeasure(seg.Geometry, proj.Measure)
+
+	busBearing, hasBearing := resolveBusBearing(point, prev, cfg)
+	weaken := shouldWeakenDirectionValidation(point, prev, cfg)
+	_, directionDiff := scoreDirection(busBearing, hasBearing, lineBearing, cfg, weaken)
+	if !hasBearing {
+		busBearing = lineBearing
+	}
+
+	emission := EmissionScore(proj.DistanceMeter, cfg.MaxSnapDistanceMeter)
+	dirScore, _ := scoreDirection(busBearing, hasBearing, lineBearing, cfg, weaken)
+	tripScore := TripDirectionScore(seg.Direction, cfg.TripDirection)
+	confidence := clampConfidence(emission * dirScore * tripScore)
+
+	return &SnapResult{
+		OriginalPoint: point.Point,
+		SnappedPoint:  proj.Point,
+		SegmentID:     seg.ID,
+		SegmentOrder:  seg.Order,
+		Direction:     seg.Direction,
+		NearestStopID: nearestStopID(stops, proj.Point),
+		DistanceMeter: proj.DistanceMeter,
+		Progress:      segmentProgress(seg, absMeasure),
+		BusBearing:    busBearing,
+		LineBearing:   lineBearing,
+		DirectionDiff: directionDiff,
+		Confidence:    confidence,
+		IsOffRoute:    proj.DistanceMeter > cfg.MaxSnapDistanceMeter,
+	}
 }

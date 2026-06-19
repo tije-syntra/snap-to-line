@@ -117,8 +117,65 @@ Use `snaptoline.DefaultConfig()` as a starting point and override fields as need
 | `LoopClosureToleranceMeter` | `10` | Distance tolerance when comparing first and last stop |
 | `UseSpeed` | `true` | Weaken bearing validation when speed is very low |
 | `SegmentDirections` | `nil` | Optional per-segment direction override for parallel routes |
+| `PreventBackwardTransition` | `false` | Reject Viterbi candidates on lower segment order (except loop wrap) |
+| `MeasureRegressionToleranceMeter` | `0` | Reject candidates whose route measure drops more than this |
+| `ClampBackwardMinConfidence` | `0` | Post-Viterbi clamp when backward slip has confidence below this (`0` = off) |
+| `ClampDwellSpeedKmh` | `0` | Speed at or below this treated as dwell when clamping (`0` = use 8 km/h) |
 
-Example for a looping route:
+For live bus tracking, use `RouteSnapConfig(stops, opts...)` which enables backward guards and auto-detects loop routes when first and last stop match. All route-specific settings are optional; omitted options use the defaults below.
+
+### `RouteSnapConfig` defaults
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `PreventBackwardTransition` | `true` | Reject Viterbi candidates on lower segment order |
+| `MeasureRegressionToleranceMeter` | `30` | Reject snap when route measure drops more than this (meters) |
+| `ClampBackwardMinConfidence` | `0.55` | Post-Viterbi clamp when backward slip has confidence below this; `0` disables clamp |
+| `ClampDwellSpeedKmh` | `8` | Speed ≤ this (km/h) treated as dwell when clamping at terminals |
+| `Looping` | auto | `true` when first and last stop share the same ID/coords within tolerance; override with `WithLooping` |
+| `LoopClosureToleranceMeter` | `10` | Tolerance for same start/end stop detection (from `DefaultConfig`) |
+
+Constants: `DefaultRouteMeasureRegressionToleranceMeter`, `DefaultRouteClampBackwardMinConfidence`, `DefaultRouteClampDwellSpeedKmh`.
+
+### Usage examples
+
+Defaults only:
+
+```go
+cfg := snaptoline.RouteSnapConfig(stops)
+snapper, err := snaptoline.NewSnapper(line, stops, cfg)
+```
+
+Functional options (recommended):
+
+```go
+cfg := snaptoline.RouteSnapConfig(stops,
+    snaptoline.WithMeasureRegressionTolerance(40),
+    snaptoline.WithClampDwellSpeedKmh(5),
+    snaptoline.WithLooping(true),
+)
+```
+
+Params struct (e.g. from env/API); nil fields keep defaults:
+
+```go
+tolerance := 40.0
+dwellKmh := 6.0
+cfg := snaptoline.RouteSnapConfig(stops, snaptoline.RouteSnapParamsOption(snaptoline.RouteSnapParams{
+    MeasureRegressionToleranceMeter: &tolerance,
+    ClampDwellSpeedKmh:              &dwellKmh,
+}))
+```
+
+Disable post-Viterbi backward clamp:
+
+```go
+cfg := snaptoline.RouteSnapConfig(stops, snaptoline.DisableBackwardClamp())
+```
+
+Available option helpers: `WithPreventBackwardTransition`, `WithMeasureRegressionTolerance`, `WithClampBackwardMinConfidence`, `WithClampDwellSpeedKmh`, `WithLooping`, `WithLoopClosureTolerance`, `WithRouteSnapParams`, `RouteSnapParamsOption`, `DisableBackwardClamp`.
+
+Example for a looping route (manual config without `RouteSnapConfig`):
 
 ```go
 cfg := snaptoline.Config{
@@ -181,7 +238,18 @@ snapper.SetTripDirection(snaptoline.DirectionInbound)
 | `Reset()` | Clear Viterbi history |
 | `SetTripDirection(direction)` | Update active trip direction |
 | `Segments()` | Return a copy of built segments |
+| `RouteMeasure(order, progress)` | Cumulative distance along route for segment order + progress |
 | `Config()` | Return current configuration |
+
+### Route snap config
+
+| Function | Description |
+|----------|-------------|
+| `RouteSnapConfig(stops, opts...)` | Live-bus defaults with optional overrides |
+| `RouteSnapParams` | Struct of optional pointer fields for overrides |
+| `WithMeasureRegressionTolerance`, etc. | Functional option helpers |
+
+See [RouteSnapConfig defaults](#routesnapconfig-defaults) above.
 
 ### SnapResult
 
