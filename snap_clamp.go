@@ -1,5 +1,7 @@
 package snaptoline
 
+import "github.com/paulmach/orb"
+
 func (s *Snapper) shouldClampBackward(result *SnapResult, point GPSPoint) bool {
 	if !s.config.PreventBackwardTransition || s.state.LastBest == nil {
 		return false
@@ -36,15 +38,65 @@ func (s *Snapper) shouldClampBackward(result *SnapResult, point GPSPoint) bool {
 	return lowConf || slow || measureBack
 }
 
+func (s *Snapper) shouldClampOverlap(result *SnapResult, point GPSPoint) bool {
+	if s.state.LastBest == nil || s.config.ClampBackwardMinConfidence <= 0 {
+		return false
+	}
+	if result.SegmentOrder != s.state.LastBest.Segment.Order {
+		return false
+	}
+	if result.Confidence >= s.config.ClampBackwardMinConfidence {
+		return false
+	}
+
+	tol := s.config.MeasureRegressionToleranceMeter
+	if tol <= 0 {
+		tol = 30
+	}
+	resMeasure := s.RouteMeasure(result.SegmentOrder, result.Progress)
+	return resMeasure < s.state.LastBest.Measure-tol
+}
+
+func (s *Snapper) shouldClampLateral(result *SnapResult, point GPSPoint) bool {
+	if s.state.LastBest == nil || s.state.LastPoint == nil {
+		return false
+	}
+	if s.config.ClampBackwardMinConfidence <= 0 {
+		return false
+	}
+	if result.Confidence >= 0.70 {
+		return false
+	}
+
+	jump := DistanceMeter(s.state.LastBest.SnappedPoint, result.SnappedPoint)
+	movement := DistanceMeter(s.state.LastPoint.Point, point.Point)
+	if movement < 1 {
+		movement = 1
+	}
+
+	jumpSlack := s.config.SnappedJumpSlackMeter
+	if jumpSlack <= 0 {
+		jumpSlack = DefaultRouteSnappedJumpSlackMeter
+	}
+	return jump > movement*0.75+jumpSlack && jump > 4
+}
+
 func (s *Snapper) clampToPreviousSegment(point GPSPoint) *SnapResult {
 	if s.state.LastBest == nil {
 		return nil
 	}
-	return SnapResultFromSegment(s.state.LastBest.Segment, s.stops, point, s.state.LastPoint, s.config)
+	fallback := s.candidateOnSegment(s.state.LastBest.Segment, point)
+	return s.resultFromCandidate(fallback, point)
 }
 
 func (s *Snapper) candidateOnSegment(seg Segment, point GPSPoint) Candidate {
-	proj := ProjectPointOnLine(seg.Geometry, point.Point)
+	prevRel := 0.0
+	var lastSnapped orb.Point
+	if s.state.LastBest != nil && s.state.LastBest.Segment.Order == seg.Order {
+		prevRel = s.state.LastBest.Measure - seg.FromMeasure
+		lastSnapped = s.state.LastBest.SnappedPoint
+	}
+	proj := ProjectPointOnLineContinued(seg.Geometry, point.Point, prevRel, s.state.LastPoint, lastSnapped, s.config)
 	absMeasure := seg.FromMeasure + proj.Measure
 	lineBearing := BearingAtMeasure(seg.Geometry, proj.Measure)
 

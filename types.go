@@ -101,6 +101,18 @@ type Config struct {
 
 	// ClampDwellSpeedKmh treats snaps at or below this speed as dwell when deciding clamp.
 	ClampDwellSpeedKmh float64
+
+	// MeasureAdvanceSlackMeter caps unrealistic forward measure jumps on folded/overlapping
+	// geometry: max advance = GPS movement * 3 + slack. Zero disables.
+	MeasureAdvanceSlackMeter float64
+
+	// SegmentSwitchHysteresisLog minimum log-score margin to change segment order.
+	// Zero disables. Prefer staying on the current segment when ambiguous.
+	SegmentSwitchHysteresisLog float64
+
+	// SnappedJumpSlackMeter caps lateral snap jumps vs GPS movement on overlapping geometry.
+	// Zero disables.
+	SnappedJumpSlackMeter float64
 }
 
 func DefaultConfig() Config {

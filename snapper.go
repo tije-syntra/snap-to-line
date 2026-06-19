@@ -44,7 +44,7 @@ func NewSnapper(line orb.LineString, stops []Stop, cfg Config) (*Snapper, error)
 }
 
 func (s *Snapper) Snap(point GPSPoint) (*SnapResult, error) {
-	candidates := findCandidates(s.segments, point, s.state.LastPoint, s.config)
+	candidates := findCandidates(s.segments, point, s.state.LastPoint, s.state, s.config)
 	if len(candidates) == 0 {
 		return &SnapResult{
 			OriginalPoint:  point.Point,
@@ -54,7 +54,7 @@ func (s *Snapper) Snap(point GPSPoint) (*SnapResult, error) {
 		}, nil
 	}
 
-	best := runViterbiStep(s.state, candidates, len(s.segments), s.config)
+	best := runViterbiStep(s.state, candidates, len(s.segments), point, s.config)
 	if best == nil {
 		if s.state.LastBest != nil && s.config.PreventBackwardTransition {
 			fallback := s.candidateOnSegment(s.state.LastBest.Segment, point)
@@ -66,7 +66,7 @@ func (s *Snapper) Snap(point GPSPoint) (*SnapResult, error) {
 
 	result := s.resultFromCandidate(*best, point)
 
-	if s.shouldClampBackward(result, point) {
+	if s.shouldClampBackward(result, point) || s.shouldClampOverlap(result, point) || s.shouldClampLateral(result, point) {
 		if clamped := s.clampToPreviousSegment(point); clamped != nil {
 			result = clamped
 			fallback := s.candidateOnSegment(s.state.LastBest.Segment, point)

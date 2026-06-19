@@ -5,6 +5,9 @@ const (
 	DefaultRouteMeasureRegressionToleranceMeter = 30.0
 	DefaultRouteClampBackwardMinConfidence      = 0.55
 	DefaultRouteClampDwellSpeedKmh              = 8.0
+	DefaultRouteMeasureAdvanceSlackMeter        = 15.0
+	DefaultRouteSegmentSwitchHysteresisLog      = 1.0
+	DefaultRouteSnappedJumpSlackMeter           = 4.0
 )
 
 // RouteSnapParams holds optional overrides for RouteSnapConfig.
@@ -34,6 +37,18 @@ type RouteSnapParams struct {
 	// ClampDwellSpeedKmh treats speed at or below this as dwell when clamping.
 	// Default: DefaultRouteClampDwellSpeedKmh (8) when nil.
 	ClampDwellSpeedKmh *float64
+
+	// MeasureAdvanceSlackMeter caps forward measure jumps on overlapping geometry.
+	// Default: DefaultRouteMeasureAdvanceSlackMeter (15) when nil. Set to 0 to disable.
+	MeasureAdvanceSlackMeter *float64
+
+	// SegmentSwitchHysteresisLog minimum log-score margin to change segment order.
+	// Default: DefaultRouteSegmentSwitchHysteresisLog (1.0) when nil. Set to 0 to disable.
+	SegmentSwitchHysteresisLog *float64
+
+	// SnappedJumpSlackMeter caps lateral snap jumps relative to GPS movement on folded geometry.
+	// Default: DefaultRouteSnappedJumpSlackMeter (4) when nil. Set to 0 to disable.
+	SnappedJumpSlackMeter *float64
 
 	// Looping enables loop-route handling. Default: auto-detect from stops when nil
 	// (true when first and last stop are the same within LoopClosureToleranceMeter).
@@ -72,6 +87,18 @@ func WithClampBackwardMinConfidence(v float64) RouteSnapOption {
 
 func WithClampDwellSpeedKmh(kmh float64) RouteSnapOption {
 	return func(p *RouteSnapParams) { p.ClampDwellSpeedKmh = &kmh }
+}
+
+func WithMeasureAdvanceSlack(m float64) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.MeasureAdvanceSlackMeter = &m }
+}
+
+func WithSnappedJumpSlack(m float64) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.SnappedJumpSlackMeter = &m }
+}
+
+func WithSegmentSwitchHysteresisLog(v float64) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.SegmentSwitchHysteresisLog = &v }
 }
 
 func WithLooping(v bool) RouteSnapOption {
@@ -127,6 +154,24 @@ func routeSnapConfig(stops []Stop, params RouteSnapParams) Config {
 	}
 	cfg.ClampDwellSpeedKmh = clampDwell
 
+	advanceSlack := DefaultRouteMeasureAdvanceSlackMeter
+	if params.MeasureAdvanceSlackMeter != nil {
+		advanceSlack = *params.MeasureAdvanceSlackMeter
+	}
+	cfg.MeasureAdvanceSlackMeter = advanceSlack
+
+	switchHyst := DefaultRouteSegmentSwitchHysteresisLog
+	if params.SegmentSwitchHysteresisLog != nil {
+		switchHyst = *params.SegmentSwitchHysteresisLog
+	}
+	cfg.SegmentSwitchHysteresisLog = switchHyst
+
+	jumpSlack := DefaultRouteSnappedJumpSlackMeter
+	if params.SnappedJumpSlackMeter != nil {
+		jumpSlack = *params.SnappedJumpSlackMeter
+	}
+	cfg.SnappedJumpSlackMeter = jumpSlack
+
 	loopTol := cfg.LoopClosureToleranceMeter
 	if params.LoopClosureToleranceMeter != nil {
 		loopTol = *params.LoopClosureToleranceMeter
@@ -154,6 +199,15 @@ func mergeRouteSnapParams(base, override RouteSnapParams) RouteSnapParams {
 	}
 	if override.ClampDwellSpeedKmh != nil {
 		base.ClampDwellSpeedKmh = override.ClampDwellSpeedKmh
+	}
+	if override.MeasureAdvanceSlackMeter != nil {
+		base.MeasureAdvanceSlackMeter = override.MeasureAdvanceSlackMeter
+	}
+	if override.SegmentSwitchHysteresisLog != nil {
+		base.SegmentSwitchHysteresisLog = override.SegmentSwitchHysteresisLog
+	}
+	if override.SnappedJumpSlackMeter != nil {
+		base.SnappedJumpSlackMeter = override.SnappedJumpSlackMeter
 	}
 	if override.Looping != nil {
 		base.Looping = override.Looping

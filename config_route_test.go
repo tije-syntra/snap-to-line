@@ -15,6 +15,9 @@ func TestRouteSnapConfigDefaults(t *testing.T) {
 	require.Equal(t, DefaultRouteMeasureRegressionToleranceMeter, cfg.MeasureRegressionToleranceMeter)
 	require.Equal(t, DefaultRouteClampBackwardMinConfidence, cfg.ClampBackwardMinConfidence)
 	require.Equal(t, DefaultRouteClampDwellSpeedKmh, cfg.ClampDwellSpeedKmh)
+	require.Equal(t, DefaultRouteMeasureAdvanceSlackMeter, cfg.MeasureAdvanceSlackMeter)
+	require.Equal(t, DefaultRouteSegmentSwitchHysteresisLog, cfg.SegmentSwitchHysteresisLog)
+	require.Equal(t, DefaultRouteSnappedJumpSlackMeter, cfg.SnappedJumpSlackMeter)
 }
 
 func TestRouteSnapConfigWithOptions(t *testing.T) {

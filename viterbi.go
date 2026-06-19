@@ -77,6 +77,7 @@ func findCandidates(
 	segments []Segment,
 	point GPSPoint,
 	prev *GPSPoint,
+	state *ViterbiState,
 	cfg Config,
 ) []Candidate {
 	type rawCandidate struct {
@@ -87,7 +88,14 @@ func findCandidates(
 	raw := make([]rawCandidate, 0, len(segments)*2)
 
 	for i, seg := range segments {
-		proj := ProjectPointOnLine(seg.Geometry, point.Point)
+		var lastSnapped orb.Point
+		prevRelMeasure := 0.0
+		if state != nil && state.LastBest != nil && state.LastBest.Segment.Order == seg.Order {
+			prevRelMeasure = state.LastBest.Measure - seg.FromMeasure
+			lastSnapped = state.LastBest.SnappedPoint
+		}
+
+		proj := ProjectPointOnLineContinued(seg.Geometry, point.Point, prevRelMeasure, prev, lastSnapped, cfg)
 		if proj.DistanceMeter > cfg.MaxSnapDistanceMeter {
 			continue
 		}
@@ -153,7 +161,7 @@ func isLoopWrapTransition(fromOrder, toOrder, segmentCount int, looping bool) bo
 	return fromOrder == segmentCount && toOrder == 1
 }
 
-func rejectBackwardCandidate(state *ViterbiState, c Candidate, segmentCount int, cfg Config) bool {
+func rejectBackwardCandidate(state *ViterbiState, c Candidate, segmentCount int, point GPSPoint, cfg Config) bool {
 	if state.LastBest == nil || !cfg.PreventBackwardTransition {
 		return false
 	}
@@ -161,24 +169,119 @@ func rejectBackwardCandidate(state *ViterbiState, c Candidate, segmentCount int,
 	fromOrder := state.LastBest.Segment.Order
 	toOrder := c.Segment.Order
 	looping := cfg.Looping
+	loopWrap := isLoopWrapTransition(fromOrder, toOrder, segmentCount, looping)
 
-	if toOrder < fromOrder && !isLoopWrapTransition(fromOrder, toOrder, segmentCount, looping) {
+	if toOrder < fromOrder && !loopWrap {
 		return true
 	}
 
 	tol := cfg.MeasureRegressionToleranceMeter
-	if tol > 0 && c.Measure < state.LastBest.Measure-tol {
-		if !isLoopWrapTransition(fromOrder, toOrder, segmentCount, looping) {
+	if tol > 0 && c.Measure < state.LastBest.Measure-tol && !loopWrap {
+		return true
+	}
+
+	slack := cfg.MeasureAdvanceSlackMeter
+	if slack > 0 && state.LastPoint != nil && !loopWrap {
+		movement := DistanceMeter(state.LastPoint.Point, point.Point)
+		if movement >= cfg.MinMovementMeter {
+			maxAdvance := movement*3 + slack
+			if c.Measure > state.LastBest.Measure+maxAdvance {
+				return true
+			}
+		}
+	}
+
+	jumpSlack := cfg.SnappedJumpSlackMeter
+	if jumpSlack > 0 && state.LastPoint != nil && c.Segment.Order == state.LastBest.Segment.Order {
+		jump := DistanceMeter(state.LastBest.SnappedPoint, c.SnappedPoint)
+		movement := DistanceMeter(state.LastPoint.Point, point.Point)
+		if movement < 1 {
+			movement = 1
+		}
+		if jump > movement*0.75+jumpSlack {
 			return true
 		}
 	}
+
 	return false
+}
+
+func viterbiTotalScore(state *ViterbiState, c Candidate, segmentCount int, cfg Config) float64 {
+	emissionLog := logScore(c.EmissionScore)
+	directionLog := logScore(c.DirectionScore)
+	tripLog := logScore(c.TripDirectionScore)
+	stepLog := emissionLog + directionLog + tripLog
+
+	if state.LastBest == nil {
+		return stepLog
+	}
+
+	transition := TransitionScore(state.LastBest.Segment.Order, c.Segment.Order, segmentCount, cfg.Looping)
+	return state.LastBest.TotalLogScore + logScore(transition) + stepLog
+}
+
+func applySegmentSwitchHysteresis(
+	state *ViterbiState,
+	best *Candidate,
+	candidates []Candidate,
+	segmentCount int,
+	point GPSPoint,
+	cfg Config,
+) *Candidate {
+	if state.LastBest == nil || best == nil {
+		return best
+	}
+
+	hyst := cfg.SegmentSwitchHysteresisLog
+	if hyst <= 0 {
+		return best
+	}
+
+	prevOrder := state.LastBest.Segment.Order
+	if best.Segment.Order == prevOrder {
+		return best
+	}
+
+	var prevBest *Candidate
+	for i := range candidates {
+		c := candidates[i]
+		if c.Segment.Order != prevOrder {
+			continue
+		}
+		if rejectBackwardCandidate(state, c, segmentCount, point, cfg) {
+			continue
+		}
+		copy := c
+		copy.TotalLogScore = viterbiTotalScore(state, copy, segmentCount, cfg)
+		if prevBest == nil || copy.TotalLogScore > prevBest.TotalLogScore {
+			prevBest = &copy
+		}
+	}
+
+	if prevBest == nil {
+		return best
+	}
+
+	// Only hesitate when both segments project nearby (parallel overlap ambiguity).
+	const ambiguousDistM = 15.0
+	if best.DistanceMeter > ambiguousDistM || prevBest.DistanceMeter > ambiguousDistM {
+		return best
+	}
+	if math.Abs(best.DistanceMeter-prevBest.DistanceMeter) > 6 {
+		return best
+	}
+
+	if best.TotalLogScore-prevBest.TotalLogScore < hyst {
+		return prevBest
+	}
+	return best
 }
 
 func runViterbiStep(
 	state *ViterbiState,
 	candidates []Candidate,
 	segmentCount int,
+	point GPSPoint,
 	cfg Config,
 ) *Candidate {
 	if len(candidates) == 0 {
@@ -190,7 +293,7 @@ func runViterbiStep(
 
 	for i := range candidates {
 		c := candidates[i]
-		if rejectBackwardCandidate(state, c, segmentCount, cfg) {
+		if rejectBackwardCandidate(state, c, segmentCount, point, cfg) {
 			continue
 		}
 
@@ -223,6 +326,8 @@ func runViterbiStep(
 			best = &copy
 		}
 	}
+
+	best = applySegmentSwitchHysteresis(state, best, candidates, segmentCount, point, cfg)
 
 	if best == nil && state.LastBest != nil && cfg.PreventBackwardTransition {
 		for i := range candidates {

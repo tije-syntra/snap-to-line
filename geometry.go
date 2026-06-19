@@ -76,3 +76,88 @@ func ProjectPointOnLine(line orb.LineString, point orb.Point) ProjectionCandidat
 	}
 	return best
 }
+
+// ProjectPointOnLineContinued prefers projections near prevRelMeasure when multiple
+// viable projections exist on folded/overlapping geometry.
+func ProjectPointOnLineContinued(
+	line orb.LineString,
+	point orb.Point,
+	prevRelMeasure float64,
+	prevPoint *GPSPoint,
+	lastSnapped orb.Point,
+	cfg Config,
+) ProjectionCandidate {
+	if prevRelMeasure <= 0 {
+		return ProjectPointOnLine(line, point)
+	}
+
+	candidates := FindProjectionCandidates(line, point)
+	viable := make([]ProjectionCandidate, 0, len(candidates))
+	for _, c := range candidates {
+		if c.DistanceMeter <= cfg.MaxSnapDistanceMeter {
+			viable = append(viable, c)
+		}
+	}
+	if len(viable) == 0 {
+		return ProjectPointOnLine(line, point)
+	}
+	if len(viable) == 1 {
+		return viable[0]
+	}
+
+	tol := cfg.MeasureRegressionToleranceMeter
+	if tol <= 0 {
+		tol = 30
+	}
+
+	best := viable[0]
+	for _, c := range viable[1:] {
+		dBest := measureDelta(best.Measure, prevRelMeasure)
+		dCand := measureDelta(c.Measure, prevRelMeasure)
+
+		switch {
+		case dCand < dBest:
+			best = c
+		case dCand == dBest && c.DistanceMeter < best.DistanceMeter:
+			best = c
+		}
+	}
+
+	nearest := ProjectPointOnLine(line, point)
+	if nearest.Measure < prevRelMeasure-tol && measureDelta(best.Measure, prevRelMeasure)+5 < measureDelta(nearest.Measure, prevRelMeasure) {
+		return best
+	}
+
+	jumpSlack := cfg.SnappedJumpSlackMeter
+	if jumpSlack <= 0 {
+		jumpSlack = DefaultRouteSnappedJumpSlackMeter
+	}
+	if hasLastSnapped(lastSnapped) && prevPoint != nil {
+		movement := DistanceMeter(prevPoint.Point, point)
+		if movement < 1 {
+			movement = 1
+		}
+		jumpNearest := DistanceMeter(lastSnapped, nearest.Point)
+		jumpBest := DistanceMeter(lastSnapped, best.Point)
+		if jumpNearest > movement*0.75+jumpSlack && jumpBest < jumpNearest {
+			return best
+		}
+	}
+
+	if measureDelta(best.Measure, prevRelMeasure)+1 < measureDelta(nearest.Measure, prevRelMeasure) {
+		return best
+	}
+	return nearest
+}
+
+func measureDelta(a, b float64) float64 {
+	d := a - b
+	if d < 0 {
+		return -d
+	}
+	return d
+}
+
+func hasLastSnapped(p orb.Point) bool {
+	return p[0] != 0 || p[1] != 0
+}

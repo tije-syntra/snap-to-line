@@ -59,6 +59,56 @@ func TestPreventBackwardTransitionAtTerminalOverlap(t *testing.T) {
 		"backward segment jump should be rejected at terminal overlap")
 }
 
+// Parallel approach lanes near terminal B (~5 m offset), similar to SOE Terminal 1B overlap.
+// Segment 2 geometry folds through south lane then north centerline before the terminal.
+func terminalParallelApproachLine() orb.LineString {
+	return orb.LineString{
+		{106.656100, -6.129000},
+		{106.656250, -6.129150},
+		{106.656260, -6.129180}, // south approach lane (correct driving path)
+		{106.656310, -6.129220}, // north centerline (parallel branch on same segment)
+		{106.656350, -6.129280}, // terminal B
+		{106.656200, -6.129100},
+	}
+}
+
+func terminalParallelApproachStops() []snaptoline.Stop {
+	line := terminalParallelApproachLine()
+	return []snaptoline.Stop{
+		{ID: "S5", Name: "Before T1B", Order: 1, Point: line[0]},
+		{ID: "S6", Name: "Approach", Order: 2, Point: line[1]},
+		{ID: "B08326P", Name: "Terminal 1B", Order: 3, Point: line[4]},
+		{ID: "S8", Name: "After T1B", Order: 4, Point: line[5]},
+	}
+}
+
+func TestParallelApproachDoesNotJumpToOffsetLane(t *testing.T) {
+	line := terminalParallelApproachLine()
+	stops := terminalParallelApproachStops()
+	cfg := snaptoline.RouteSnapConfig(stops)
+	snapper, err := snaptoline.NewSnapper(line, stops, cfg)
+	require.NoError(t, err)
+
+	// Establish segment 2 on the south approach lane.
+	_, err = snapper.Snap(snaptoline.GPSPoint{Point: orb.Point{106.656310, -6.129220}, Bearing: 137, Speed: 11})
+	require.NoError(t, err)
+	south, err := snapper.Snap(snaptoline.GPSPoint{Point: orb.Point{106.656260, -6.129180}, Bearing: 137, Speed: 11})
+	require.NoError(t, err)
+	require.Equal(t, 2, south.SegmentOrder)
+
+	// GPS biased toward the north parallel branch (TJ-611 screenshot coords).
+	r, err := snapper.Snap(snaptoline.GPSPoint{
+		Point:   orb.Point{106.656327, -6.129180},
+		Bearing: 137,
+		Speed:   11,
+	})
+	require.NoError(t, err)
+	require.Equal(t, 2, r.SegmentOrder)
+
+	jump := snaptoline.DistanceMeter(south.SnappedPoint, r.SnappedPoint)
+	require.Less(t, jump, 4.0, "snap should not laterally jump to the parallel north branch")
+}
+
 func TestRouteSnapConfigEnablesBackwardGuard(t *testing.T) {
 	stops := terminalOverlapStops()
 	cfg := snaptoline.RouteSnapConfig(stops)

@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.2.1 — 2026-06-19
+
+- fix: wrong snap on parallel lane at terminal overlap (`ProjectPointOnLineContinued`)
+- fix: measure-continuity projection when folded geometry has multiple viable candidates
+- feat: `MeasureAdvanceSlackMeter`, `SnappedJumpSlackMeter`, `SegmentSwitchHysteresisLog` in `RouteSnapConfig`
+- fix: segment-switch hysteresis and overlap/lateral clamp for low-confidence snaps
+- test: `TestParallelApproachDoesNotJumpToOffsetLane`
+
 ## v0.2.0 — 2026-06-19
 
 - feat: `RouteSnapConfig` with optional params and functional options (`WithMeasureRegressionTolerance`, etc.)

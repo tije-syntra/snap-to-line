@@ -132,10 +132,13 @@ For live bus tracking, use `RouteSnapConfig(stops, opts...)` which enables backw
 | `MeasureRegressionToleranceMeter` | `30` | Reject snap when route measure drops more than this (meters) |
 | `ClampBackwardMinConfidence` | `0.55` | Post-Viterbi clamp when backward slip has confidence below this; `0` disables clamp |
 | `ClampDwellSpeedKmh` | `8` | Speed ≤ this (km/h) treated as dwell when clamping at terminals |
+| `MeasureAdvanceSlackMeter` | `15` | Cap unrealistic forward measure jumps vs GPS movement on folded geometry |
+| `SnappedJumpSlackMeter` | `4` | Cap lateral snap jumps vs GPS movement on overlapping branches |
+| `SegmentSwitchHysteresisLog` | `1.0` | Minimum log-score margin to change segment in ambiguous zones (`0` disables) |
 | `Looping` | auto | `true` when first and last stop share the same ID/coords within tolerance; override with `WithLooping` |
 | `LoopClosureToleranceMeter` | `10` | Tolerance for same start/end stop detection (from `DefaultConfig`) |
 
-Constants: `DefaultRouteMeasureRegressionToleranceMeter`, `DefaultRouteClampBackwardMinConfidence`, `DefaultRouteClampDwellSpeedKmh`.
+Constants: `DefaultRouteMeasureRegressionToleranceMeter`, `DefaultRouteClampBackwardMinConfidence`, `DefaultRouteClampDwellSpeedKmh`, `DefaultRouteMeasureAdvanceSlackMeter`, `DefaultRouteSnappedJumpSlackMeter`, `DefaultRouteSegmentSwitchHysteresisLog`.
 
 ### Usage examples
 
@@ -173,7 +176,7 @@ Disable post-Viterbi backward clamp:
 cfg := snaptoline.RouteSnapConfig(stops, snaptoline.DisableBackwardClamp())
 ```
 
-Available option helpers: `WithPreventBackwardTransition`, `WithMeasureRegressionTolerance`, `WithClampBackwardMinConfidence`, `WithClampDwellSpeedKmh`, `WithLooping`, `WithLoopClosureTolerance`, `WithRouteSnapParams`, `RouteSnapParamsOption`, `DisableBackwardClamp`.
+Available option helpers: `WithPreventBackwardTransition`, `WithMeasureRegressionTolerance`, `WithClampBackwardMinConfidence`, `WithClampDwellSpeedKmh`, `WithMeasureAdvanceSlack`, `WithSnappedJumpSlack`, `WithSegmentSwitchHysteresisLog`, `WithLooping`, `WithLoopClosureTolerance`, `WithRouteSnapParams`, `RouteSnapParamsOption`, `DisableBackwardClamp`.
 
 Example for a looping route (manual config without `RouteSnapConfig`):
 
