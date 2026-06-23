@@ -22,11 +22,36 @@ type Candidate struct {
 }
 
 type ViterbiState struct {
-	LastCandidates  []Candidate
-	LastBest        *Candidate
-	LastPoint       *GPSPoint
-	LastTimestamp   int64
-	ActiveDirection DirectionType
+	LastCandidates    []Candidate
+	LastBest          *Candidate
+	LastGood          *Candidate // last snap with a valid segment (for hold after GPS glitches)
+	LastPoint         *GPSPoint
+	LastTimestamp     int64
+	ActiveDirection   DirectionType
+	BranchLock        *BranchLock
+	BranchNormalTicks int
+	RecentBranchTicks []branchTick
+	// LastOutputSnapDistanceM is raw GPS to snapped point distance from the previous output.
+	LastOutputSnapDistanceM float64
+	// GrowingSnapDistTicks counts consecutive ticks where that distance increased.
+	GrowingSnapDistTicks int
+}
+
+// BranchLock pins snap projection on folded segment geometry.
+type BranchLock struct {
+	SegmentOrder     int
+	SegmentID        string
+	LockedRelMeasure float64
+	LockedMeasure    float64
+	LockedLineIndex  int
+	LockedPoint      orb.Point
+	ViableCount      int
+}
+
+type branchTick struct {
+	SegmentOrder int
+	LineIndex    int
+	Measure      float64
 }
 
 func NewViterbiState(activeDirection DirectionType) *ViterbiState {
@@ -36,8 +61,14 @@ func NewViterbiState(activeDirection DirectionType) *ViterbiState {
 func (s *ViterbiState) Reset() {
 	s.LastCandidates = nil
 	s.LastBest = nil
+	s.LastGood = nil
 	s.LastPoint = nil
 	s.LastTimestamp = 0
+	s.BranchLock = nil
+	s.BranchNormalTicks = 0
+	s.RecentBranchTicks = nil
+	s.LastOutputSnapDistanceM = 0
+	s.GrowingSnapDistTicks = 0
 }
 
 func TransitionScore(fromOrder, toOrder, segmentCount int, looping bool) float64 {
@@ -88,14 +119,7 @@ func findCandidates(
 	raw := make([]rawCandidate, 0, len(segments)*2)
 
 	for i, seg := range segments {
-		var lastSnapped orb.Point
-		prevRelMeasure := 0.0
-		if state != nil && state.LastBest != nil && state.LastBest.Segment.Order == seg.Order {
-			prevRelMeasure = state.LastBest.Measure - seg.FromMeasure
-			lastSnapped = state.LastBest.SnappedPoint
-		}
-
-		proj := ProjectPointOnLineContinued(seg.Geometry, point.Point, prevRelMeasure, prev, lastSnapped, cfg)
+		proj := projectOntoSegment(seg, point, prev, state, cfg)
 		if proj.DistanceMeter > cfg.MaxSnapDistanceMeter {
 			continue
 		}
@@ -263,11 +287,11 @@ func applySegmentSwitchHysteresis(
 	}
 
 	// Only hesitate when both segments project nearby (parallel overlap ambiguity).
-	const ambiguousDistM = 15.0
+	const ambiguousDistM = 12.0
 	if best.DistanceMeter > ambiguousDistM || prevBest.DistanceMeter > ambiguousDistM {
 		return best
 	}
-	if math.Abs(best.DistanceMeter-prevBest.DistanceMeter) > 6 {
+	if math.Abs(best.DistanceMeter-prevBest.DistanceMeter) > 5 {
 		return best
 	}
 
@@ -294,6 +318,9 @@ func runViterbiStep(
 	for i := range candidates {
 		c := candidates[i]
 		if rejectBackwardCandidate(state, c, segmentCount, point, cfg) {
+			continue
+		}
+		if rejectPrematureSegmentSwitch(state, c, segmentCount, point, cfg) {
 			continue
 		}
 

@@ -1,6 +1,8 @@
 package snaptoline
 
 import (
+	"time"
+
 	"github.com/paulmach/orb"
 )
 
@@ -44,8 +46,13 @@ func NewSnapper(line orb.LineString, stops []Stop, cfg Config) (*Snapper, error)
 }
 
 func (s *Snapper) Snap(point GPSPoint) (*SnapResult, error) {
+	distReset := s.maybeResetSnapDistance(point)
+
 	candidates := findCandidates(s.segments, point, s.state.LastPoint, s.state, s.config)
 	if len(candidates) == 0 {
+		if result, best := s.tryHoldLastSegment(point, "no_candidates"); result != nil {
+			return s.finishSnap(nil, best, result, point), nil
+		}
 		return &SnapResult{
 			OriginalPoint:  point.Point,
 			SnappedPoint:   point.Point,
@@ -64,9 +71,34 @@ func (s *Snapper) Snap(point GPSPoint) (*SnapResult, error) {
 		}
 	}
 
+	if stabilized := s.stabilizeSameSegmentCandidate(best, point); stabilized != nil {
+		best = stabilized
+	}
+
+	if nearby := s.preferNearbyOnActiveSegment(best, point); nearby != nil {
+		best = nearby
+	}
+
+	if enforced := s.enforceNextStopBeforeSegmentSwitch(best, point); enforced != nil {
+		best = enforced
+	}
+
+	if locked := s.enforceBranchLock(best, point); locked != nil {
+		best = locked
+	}
+
+	if s.state.LastBest != nil && s.config.PreventBackwardTransition {
+		prevOrder := s.state.LastBest.Segment.Order
+		if best.Segment.Order < prevOrder &&
+			!isLoopWrapTransition(prevOrder, best.Segment.Order, len(s.segments), s.config.Looping) {
+			fallback := s.candidateOnSegment(s.state.LastBest.Segment, point)
+			best = &fallback
+		}
+	}
+
 	result := s.resultFromCandidate(*best, point)
 
-	if s.shouldClampBackward(result, point) || s.shouldClampOverlap(result, point) || s.shouldClampLateral(result, point) {
+	if s.shouldClampBackward(result) || s.shouldClampMeasureRegression(result) || s.shouldClampLateral(result, point) {
 		if clamped := s.clampToPreviousSegment(point); clamped != nil {
 			result = clamped
 			fallback := s.candidateOnSegment(s.state.LastBest.Segment, point)
@@ -74,12 +106,55 @@ func (s *Snapper) Snap(point GPSPoint) (*SnapResult, error) {
 		}
 	}
 
+	if result.SegmentID == "" || result.SegmentOrder <= 0 {
+		if held, heldBest := s.tryHoldLastSegment(point, "empty_segment"); held != nil {
+			return s.finishSnap(candidates, heldBest, held, point), nil
+		}
+	}
+
+	if stabilized, stabBest := s.stabilizeWildGPSJump(best, point); stabilized != nil {
+		best = stabBest
+		result = stabilized
+	}
+
+	if capped, capBest := s.capForwardSnapAdvance(best, point); capped != nil {
+		best = capBest
+		result = capped
+	}
+
+	if contResult, contBest := s.applySnapContinuityResult(best, point, result); contResult != nil {
+		best = contBest
+		result = contResult
+	}
+
+	if creepResult, creepBest := s.ensureForwardCreepWhenStuck(best, point); creepResult != nil {
+		best = creepBest
+		result = creepResult
+	}
+
+	result = s.finishSnap(candidates, best, result, point)
+	if distReset && result != nil && result.HeldReason == "" {
+		result.HeldReason = "snap_distance_reset"
+	}
+	return result, nil
+}
+
+func (s *Snapper) commitSnapState(candidates []Candidate, best *Candidate, point GPSPoint, result *SnapResult) {
 	s.state.LastCandidates = candidates
 	s.state.LastBest = best
+	if best != nil && best.Segment.Order > 0 {
+		copy := *best
+		s.state.LastGood = &copy
+	}
 	s.state.LastPoint = &point
-	s.state.LastTimestamp = point.Timestamp
-
-	return result, nil
+	ts := point.Timestamp
+	if ts <= 0 {
+		ts = time.Now().UnixMilli()
+	}
+	s.state.LastTimestamp = ts
+	if result != nil {
+		s.state.LastOutputSnapDistanceM = result.DistanceMeter
+	}
 }
 
 func (s *Snapper) Reset() {
@@ -110,6 +185,13 @@ func (s *Snapper) RouteMeasure(order int, progress float64) float64 {
 		}
 	}
 	return 0
+}
+
+// PointAtRouteMeasure returns the point on the trip linestring at segment order and progress.
+func (s *Snapper) PointAtRouteMeasure(order int, progress float64) orb.Point {
+	m := s.RouteMeasure(order, progress)
+	p, _ := PointAtMeasure(s.line, m)
+	return p
 }
 
 // SnapResultFromSegment projects a GPS point onto a specific segment and builds

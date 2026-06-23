@@ -18,6 +18,16 @@ func TestRouteSnapConfigDefaults(t *testing.T) {
 	require.Equal(t, DefaultRouteMeasureAdvanceSlackMeter, cfg.MeasureAdvanceSlackMeter)
 	require.Equal(t, DefaultRouteSegmentSwitchHysteresisLog, cfg.SegmentSwitchHysteresisLog)
 	require.Equal(t, DefaultRouteSnappedJumpSlackMeter, cfg.SnappedJumpSlackMeter)
+	require.True(t, cfg.HoldLastSegmentOnMiss)
+	require.Equal(t, DefaultRouteHoldLastSegmentMaxDistM, cfg.HoldLastSegmentMaxDistM)
+	require.Equal(t, DefaultRouteHoldLastSegmentMaxAgeMs, cfg.HoldLastSegmentMaxAgeMs)
+	require.Equal(t, DefaultRouteHoldLastSegmentMinConfidence, cfg.HoldLastSegmentMinConfidence)
+	require.True(t, cfg.WildGPSStabilize)
+	require.Equal(t, DefaultRouteWildGPSJumpMinMeter, cfg.WildGPSJumpMinMeter)
+	require.Equal(t, DefaultRouteWildGPSJumpMultiplier, cfg.WildGPSJumpMultiplier)
+	require.Equal(t, DefaultRouteWildGPSMaxAdvanceFactor, cfg.WildGPSMaxAdvanceFactor)
+	require.Equal(t, DefaultRouteMaxForwardSnapMeter, cfg.MaxForwardSnapMeter)
+	require.True(t, cfg.NoBackwardSnap)
 }
 
 func TestRouteSnapConfigWithOptions(t *testing.T) {

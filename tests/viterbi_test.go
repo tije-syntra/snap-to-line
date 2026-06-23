@@ -98,13 +98,16 @@ func TestStoppedBusWeakensDirectionValidation(t *testing.T) {
 	snapper, err := snaptoline.NewSnapper(line, stops, cfg)
 	require.NoError(t, err)
 
-	slow := snaptoline.GPSPoint{
-		Point: orb.Point{106.04, -6.0001},
-		Speed: 0.5,
+	for _, speed := range []float64{0, 0.5, 2.5} {
+		snapper.Reset()
+		slow := snaptoline.GPSPoint{
+			Point: orb.Point{106.04, -6.0001},
+			Speed: speed,
+		}
+		result, err := snapper.Snap(slow)
+		require.NoError(t, err, "speed=%v", speed)
+		require.False(t, result.IsOffRoute, "speed=%v", speed)
 	}
-	result, err := snapper.Snap(slow)
-	require.NoError(t, err)
-	require.False(t, result.IsOffRoute)
 }
 
 func TestViterbiStaysStableWithNoisyGPS(t *testing.T) {

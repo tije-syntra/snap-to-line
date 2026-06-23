@@ -62,6 +62,10 @@ func FindNearestProjectionAfterMeasure(line orb.LineString, point orb.Point, min
 	return ProjectionCandidate(mathgeo.FindNearestProjectionAfterMeasure(line, point, minMeasure))
 }
 
+func FindProjectionNearMeasure(line orb.LineString, point orb.Point, targetMeasure float64, searchWindow float64) ProjectionCandidate {
+	return ProjectionCandidate(mathgeo.FindProjectionNearMeasure(line, point, targetMeasure, searchWindow))
+}
+
 func ProjectPointOnLine(line orb.LineString, point orb.Point) ProjectionCandidate {
 	candidates := FindProjectionCandidates(line, point)
 	if len(candidates) == 0 {
@@ -110,18 +114,7 @@ func ProjectPointOnLineContinued(
 		tol = 30
 	}
 
-	best := viable[0]
-	for _, c := range viable[1:] {
-		dBest := measureDelta(best.Measure, prevRelMeasure)
-		dCand := measureDelta(c.Measure, prevRelMeasure)
-
-		switch {
-		case dCand < dBest:
-			best = c
-		case dCand == dBest && c.DistanceMeter < best.DistanceMeter:
-			best = c
-		}
-	}
+	best := pickMeasureContinuityCandidate(viable, prevRelMeasure, lastSnapped)
 
 	nearest := ProjectPointOnLine(line, point)
 	if nearest.Measure < prevRelMeasure-tol && measureDelta(best.Measure, prevRelMeasure)+5 < measureDelta(nearest.Measure, prevRelMeasure) {
@@ -132,8 +125,22 @@ func ProjectPointOnLineContinued(
 	if jumpSlack <= 0 {
 		jumpSlack = DefaultRouteSnappedJumpSlackMeter
 	}
-	if hasLastSnapped(lastSnapped) && prevPoint != nil {
-		movement := DistanceMeter(prevPoint.Point, point)
+
+	movement := 0.0
+	if prevPoint != nil {
+		movement = DistanceMeter(prevPoint.Point, point)
+	}
+
+	// Dwell / GPS noise: keep measure-continuity projection on folded geometry.
+	minMovement := cfg.MinMovementMeter
+	if minMovement <= 0 {
+		minMovement = 1
+	}
+	if prevPoint != nil && movement < minMovement && hasLastSnapped(lastSnapped) {
+		return best
+	}
+
+	if hasLastSnapped(lastSnapped) {
 		if movement < 1 {
 			movement = 1
 		}
@@ -142,12 +149,73 @@ func ProjectPointOnLineContinued(
 		if jumpNearest > movement*0.75+jumpSlack && jumpBest < jumpNearest {
 			return best
 		}
+		// Prefer continuity when nearest would hop to a parallel branch at similar measure.
+		if jumpNearest > jumpSlack && jumpBest <= jumpSlack {
+			return best
+		}
+		dBest := measureDelta(best.Measure, prevRelMeasure)
+		dNearest := measureDelta(nearest.Measure, prevRelMeasure)
+		if dBest <= dNearest+tol/2 && jumpBest <= jumpNearest {
+			return best
+		}
 	}
 
 	if measureDelta(best.Measure, prevRelMeasure)+1 < measureDelta(nearest.Measure, prevRelMeasure) {
 		return best
 	}
 	return nearest
+}
+
+// ForwardProjectionOnSegment finds the nearest projection within a relative measure window.
+func ForwardProjectionOnSegment(
+	line orb.LineString,
+	point orb.Point,
+	minRelMeasure, maxRelMeasure, maxDist float64,
+) (ProjectionCandidate, bool) {
+	if len(line) < 2 {
+		return ProjectionCandidate{}, false
+	}
+
+	cands := FindProjectionCandidates(line, point)
+	var best *ProjectionCandidate
+	for i := range cands {
+		c := &cands[i]
+		if c.DistanceMeter > maxDist {
+			continue
+		}
+		if c.Measure < minRelMeasure || c.Measure > maxRelMeasure {
+			continue
+		}
+		if best == nil || c.DistanceMeter < best.DistanceMeter {
+			best = c
+		}
+	}
+	if best == nil {
+		return ProjectionCandidate{}, false
+	}
+	return *best, true
+}
+
+func pickMeasureContinuityCandidate(viable []ProjectionCandidate, prevRelMeasure float64, lastSnapped orb.Point) ProjectionCandidate {
+	best := viable[0]
+	useSnapped := hasLastSnapped(lastSnapped)
+
+	for _, c := range viable[1:] {
+		dBest := measureDelta(best.Measure, prevRelMeasure)
+		dCand := measureDelta(c.Measure, prevRelMeasure)
+
+		switch {
+		case dCand+1 < dBest:
+			best = c
+		case dCand <= dBest+1 && useSnapped:
+			if DistanceMeter(lastSnapped, c.Point) < DistanceMeter(lastSnapped, best.Point) {
+				best = c
+			}
+		case dCand == dBest && !useSnapped && c.DistanceMeter < best.DistanceMeter:
+			best = c
+		}
+	}
+	return best
 }
 
 func measureDelta(a, b float64) float64 {

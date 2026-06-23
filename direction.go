@@ -59,9 +59,9 @@ func resolveBusBearing(point GPSPoint, prev *GPSPoint, cfg Config) (float64, boo
 
 func shouldWeakenDirectionValidation(point GPSPoint, prev *GPSPoint, cfg Config) bool {
 	const lowSpeedKmh = 3.0
-	const msPerKmh = 1.0 / 3.6
 
-	if cfg.UseSpeed && point.Speed > 0 && point.Speed < lowSpeedKmh*msPerKmh {
+	// Speed is km/h (live GPS feeds). Treat stopped / crawl as dwell.
+	if cfg.UseSpeed && point.Speed < lowSpeedKmh {
 		return true
 	}
 

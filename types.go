@@ -62,6 +62,11 @@ type SnapResult struct {
 	Confidence     float64
 	IsOffRoute     bool
 	RejectedReason string
+	// HeldSegment is true when segment/order were kept from the previous snap (e.g. no candidates).
+	HeldSegment bool
+	HeldReason  string
+	// BranchLocked is true when snap is pinned to a branch on folded segment geometry.
+	BranchLocked bool
 }
 
 type Config struct {
@@ -113,6 +118,76 @@ type Config struct {
 	// SnappedJumpSlackMeter caps lateral snap jumps vs GPS movement on overlapping geometry.
 	// Zero disables.
 	SnappedJumpSlackMeter float64
+
+	// HoldLastSegmentOnMiss reuses the previous segment when no candidates are within
+	// MaxSnapDistanceMeter (live-bus GPS glitches). Disabled when false.
+	HoldLastSegmentOnMiss bool
+
+	// HoldLastSegmentMaxDistM max lateral distance for held projection (defaults in RouteSnapConfig).
+	HoldLastSegmentMaxDistM float64
+
+	// HoldLastSegmentMaxAgeMs max elapsed ms since the last good snap to allow hold. Zero = use default.
+	HoldLastSegmentMaxAgeMs int64
+
+	// HoldLastSegmentMinConfidence floor for confidence on held snaps (ETA consumers).
+	HoldLastSegmentMinConfidence float64
+
+	// WildGPSStabilize freezes or caps snap when raw GPS jumps implausibly far.
+	WildGPSStabilize bool
+
+	// WildGPSJumpMinMeter minimum raw GPS movement before wild-jump detection applies.
+	WildGPSJumpMinMeter float64
+
+	// WildGPSJumpMultiplier raw movement above plausible speed*time*multiplier is wild.
+	WildGPSJumpMultiplier float64
+
+	// WildGPSMaxAdvanceFactor max route advance on wild jump = rawMovement*factor + slack.
+	WildGPSMaxAdvanceFactor float64
+
+	// MaxForwardSnapMeter max route measure advance per snap along the line (0 disables).
+	MaxForwardSnapMeter float64
+
+	// NoBackwardSnap rejects any snap whose route measure or segment order moves backward.
+	NoBackwardSnap bool
+
+	// RequireNextStopBeforeSegmentSwitch blocks segment_id changes until the bus has
+	// passed the current segment's destination stop (ToStop).
+	RequireNextStopBeforeSegmentSwitch bool
+
+	// NextStopPassToleranceMeter route measure slack before ToMeasure counts as passed.
+	NextStopPassToleranceMeter float64
+
+	// FoldedSegmentBranchLock pins snap to the nearest GPS branch when a segment has
+	// more than FoldedSegmentMinViable projections within max snap distance.
+	FoldedSegmentBranchLock bool
+
+	// FoldedSegmentMinViable minimum viable projections to treat a segment as folded (>2 → 3).
+	FoldedSegmentMinViable int
+
+	// BranchLockSearchWindowM relative measure window while a branch lock is active.
+	BranchLockSearchWindowM float64
+
+	// BranchUnlockNormalTicks consecutive ticks with ≤2 viable projections before unlock.
+	BranchUnlockNormalTicks int
+
+	// FoldedSegmentMeasureSpreadM treats a segment as ambiguous when viable projection
+	// measures span more than this distance (overlapping geometry with few candidates).
+	FoldedSegmentMeasureSpreadM float64
+
+	// SnapContinuityFromPrevious limits snap jumps vs the previous snapped position.
+	SnapContinuityFromPrevious bool
+
+	// SnapDistanceResetOnGrow clears Viterbi state when raw-to-snap distance keeps growing.
+	SnapDistanceResetOnGrow bool
+
+	// SnapDistanceGrowResetTicks consecutive growing-distance ticks before reset (default 2).
+	SnapDistanceGrowResetTicks int
+
+	// SnapDistanceGrowMinDeltaM minimum distance increase per tick to count as growing (default 8).
+	SnapDistanceGrowMinDeltaM float64
+
+	// SnapDistanceResetMinMeter minimum raw-to-snap distance before grow-reset applies (default 35).
+	SnapDistanceResetMinMeter float64
 }
 
 func DefaultConfig() Config {
