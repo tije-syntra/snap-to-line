@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.0.0 — 2026-06-22
+
+- **Stable release** — public API (`Snapper`, `RouteSnapConfig`, `SnapResult`, segment/Viterbi helpers) is now semver-stable
+- Production-ready live-bus snapping: Viterbi smoothing, backward guard, hold segment, wild GPS stabilize, forward cap, branch lock, segment switch guard, snap continuity, distance grow-reset
+- MIT LICENSE (v0.2.9)
+
 ## v0.2.9 — 2026-06-22
 
 - chore: add MIT LICENSE for pkg.go.dev and downstream redistribution
