@@ -311,6 +311,10 @@ Tests cover:
 
 - [github.com/paulmach/orb](https://github.com/paulmach/orb) — geometry types (`orb.Point`, `orb.LineString`)
 
+## License
+
+MIT License — see [LICENSE](LICENSE). Redistributable with minimal restrictions on use, modification, and redistribution.
+
 ## Status
 
 Experimental. API may change before `v1.0.0`.

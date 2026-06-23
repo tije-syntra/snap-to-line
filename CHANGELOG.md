@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.2.9 — 2026-06-22
+
+- chore: add MIT LICENSE for pkg.go.dev and downstream redistribution
+
 ## v0.2.8 — 2026-06-22
 
 - feat: snap continuity from previous position — limit geodesic/route jumps vs last snap using GPS movement + forward cap (`SnapContinuityFromPrevious`, default on)
