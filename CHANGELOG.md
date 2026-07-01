@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+## v1.1.0 — 2026-06-30
+
+- feat: GPS drift resnap — re-project onto active segment when raw GPS drifts far from frozen snap but stays near the route (`resnapOnActiveSegmentWhenDrifted`)
+- feat: Viterbi fallback `pickNearestForwardCandidate` when backward segment transition is rejected
+- fix: stop forward creep when raw GPS drifts beyond max snap and is no longer near the route polyline (prevents measure racing ahead while lateral error grows)
+- fix: reject backward segment transitions via `enforceForwardSegmentOrder`
+- fix: default `MaxForwardSnapMeter` is 0 (disabled) — no per-tick forward snap cap unless explicitly configured
+- test: `snap_drift_test` — drift resnap, backward segment guard, off-route creep regression
+
 ## v1.0.0 — 2026-06-22
 
 - **Stable release** — public API (`Snapper`, `RouteSnapConfig`, `SnapResult`, segment/Viterbi helpers) is now semver-stable

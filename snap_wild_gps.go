@@ -91,7 +91,10 @@ func (s *Snapper) plausibleRawGPSMovementM(point GPSPoint) float64 {
 }
 
 func (s *Snapper) freezeAtLastSnap(point GPSPoint, reason string) (*SnapResult, *Candidate) {
-	ref := s.state.LastBest
+	return s.freezeAtRefCandidate(point, s.state.LastBest, reason)
+}
+
+func (s *Snapper) freezeAtRefCandidate(point GPSPoint, ref *Candidate, reason string) (*SnapResult, *Candidate) {
 	if ref == nil {
 		return nil, nil
 	}

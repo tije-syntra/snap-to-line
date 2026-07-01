@@ -14,7 +14,7 @@ const (
 	DefaultRouteWildGPSJumpMinMeter             = 25.0
 	DefaultRouteWildGPSJumpMultiplier           = 2.0
 	DefaultRouteWildGPSMaxAdvanceFactor         = 0.5
-	DefaultRouteMaxForwardSnapMeter             = 50.0
+	DefaultRouteMaxForwardSnapMeter             = 0.0 // 0 = no per-tick forward cap
 	DefaultRouteNextStopPassToleranceMeter      = 8.0
 	DefaultFoldedSegmentMinViable               = 3
 	DefaultBranchLockSearchWindowM              = 20.0
@@ -106,7 +106,7 @@ type RouteSnapParams struct {
 	WildGPSMaxAdvanceFactor *float64
 
 	// MaxForwardSnapMeter max route advance per snap along the line.
-	// Default: DefaultRouteMaxForwardSnapMeter (50) when nil. Set to 0 to disable.
+	// Default: 0 (disabled). Set e.g. 50 to cap forward advance per tick.
 	MaxForwardSnapMeter *float64
 
 	// NoBackwardSnap freezes at the last snap when the new result would move backward.

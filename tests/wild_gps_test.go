@@ -61,6 +61,7 @@ func TestWildGPSJumpCapsForwardAdvance(t *testing.T) {
 
 	cfg := snaptoline.RouteSnapConfig(stops,
 		snaptoline.WithMeasureRegressionTolerance(10),
+		snaptoline.WithMaxForwardSnapMeter(50),
 	)
 	snapper, err := snaptoline.NewSnapper(line, stops, cfg)
 	require.NoError(t, err)
@@ -74,7 +75,7 @@ func TestWildGPSJumpCapsForwardAdvance(t *testing.T) {
 	require.NoError(t, err)
 	seedM := snapper.RouteMeasure(seed.SegmentOrder, seed.Progress)
 
-	// Wild forward jump — capped by MaxForwardSnapMeter (50 m default).
+	// Wild forward jump — capped when MaxForwardSnapMeter is set.
 	wild, err := snapper.Snap(snaptoline.GPSPoint{
 		Point:     orb.Point{106.08, -6.0},
 		Speed:     5,

@@ -164,6 +164,19 @@ func (s *Snapper) enforceSnapContinuityFromPrevious(best *Candidate, point GPSPo
 		}
 	}
 
+	if s.rawGPSDriftedOffSnap(point) {
+		maxDist := s.holdLastSegmentMaxDistM()
+		if _, c := s.clampToPreviousSegmentWithMaxDist(point, maxDist); c != nil {
+			tol := s.config.MeasureRegressionToleranceMeter
+			if tol <= 0 {
+				tol = DefaultRouteMeasureRegressionToleranceMeter
+			}
+			if c.Measure >= ref.Measure-tol {
+				return c
+			}
+		}
+	}
+
 	frozen := *ref
 	frozen.DistanceMeter = DistanceMeter(point.Point, frozen.SnappedPoint)
 	return &frozen

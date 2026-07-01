@@ -364,6 +364,9 @@ func runViterbiStep(
 				return &copy
 			}
 		}
+		if picked := pickNearestForwardCandidate(candidates, state, segmentCount, looping); picked != nil {
+			return picked
+		}
 	}
 
 	return best

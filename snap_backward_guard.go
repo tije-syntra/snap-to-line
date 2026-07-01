@@ -4,6 +4,26 @@ import "math"
 
 const backwardMeasureEpsilonM = 0.5
 
+func (s *Snapper) isBackwardSegmentTransition(best *Candidate) bool {
+	if best == nil || s.state.LastBest == nil || !s.config.PreventBackwardTransition {
+		return false
+	}
+	ref := s.state.LastBest
+	if best.Segment.Order >= ref.Segment.Order {
+		return false
+	}
+	return !isLoopWrapTransition(ref.Segment.Order, best.Segment.Order, len(s.segments), s.config.Looping)
+}
+
+// enforceForwardSegmentOrder rejects any candidate on a lower segment order than the last snap.
+func (s *Snapper) enforceForwardSegmentOrder(best *Candidate, point GPSPoint) *Candidate {
+	if !s.isBackwardSegmentTransition(best) {
+		return best
+	}
+	fallback := s.candidateOnSegment(s.state.LastBest.Segment, point)
+	return &fallback
+}
+
 // enforceNoBackwardSnap prevents route regression while still allowing forward creep when GPS progresses.
 func (s *Snapper) enforceNoBackwardSnap(best *Candidate, point GPSPoint) (*SnapResult, *Candidate) {
 	if !s.noBackwardSnapEnabled() || s.state.LastBest == nil || best == nil {
@@ -72,7 +92,11 @@ func (s *Snapper) shouldCreepForwardFromPrevious(point GPSPoint, ref *Candidate)
 		return false
 	}
 	if maxSnap > 0 && rawSnap > maxSnap {
-		return rawSnap > prevRawSnap+0.5
+		onSeg := s.candidateOnSegment(ref.Segment, point)
+		if onSeg.DistanceMeter <= maxSnap {
+			return s.gpsMovesForwardAlongRoute(point, ref)
+		}
+		return false
 	}
 	if rawSnap <= prevRawSnap+0.5 {
 		return false

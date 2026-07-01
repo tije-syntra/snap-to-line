@@ -132,6 +132,17 @@ func (s *Snapper) Snap(point GPSPoint) (*SnapResult, error) {
 		result = creepResult
 	}
 
+	if resnapped := s.resnapOnActiveSegmentWhenDrifted(best, point); resnapped != nil && resnapped != best {
+		best = resnapped
+		result = s.resultFromCandidate(*best, point)
+	}
+
+	best = s.enforceForwardSegmentOrder(best, point)
+	if result != nil && s.state.LastBest != nil &&
+		(result.SegmentOrder < s.state.LastBest.Segment.Order || s.isBackwardSegmentTransition(best)) {
+		result = s.resultFromCandidate(*best, point)
+	}
+
 	result = s.finishSnap(candidates, best, result, point)
 	if distReset && result != nil && result.HeldReason == "" {
 		result.HeldReason = "snap_distance_reset"
