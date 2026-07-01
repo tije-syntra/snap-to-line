@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v1.1.1 — 2026-06-30
+
+- docs: README status reflects v1.1.0 release
+
 ## v1.1.0 — 2026-06-30
 
 - feat: GPS drift resnap — re-project onto active segment when raw GPS drifts far from frozen snap but stays near the route (`resnapOnActiveSegmentWhenDrifted`)
