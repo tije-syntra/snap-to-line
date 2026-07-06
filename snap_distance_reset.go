@@ -29,14 +29,34 @@ func snapDistanceResetMinMeter(cfg Config) float64 {
 	return DefaultSnapDistanceResetMinMeter
 }
 
+func snapDistanceResetMaxMeter(cfg Config) float64 {
+	if cfg.SnapDistanceResetMaxMeter == 0 {
+		return 0
+	}
+	if cfg.SnapDistanceResetMaxMeter > 0 {
+		return cfg.SnapDistanceResetMaxMeter
+	}
+	return DefaultSnapDistanceResetMaxMeter
+}
+
 // maybeResetSnapDistance clears Viterbi tracking when raw-to-snap distance keeps growing,
 // so the next tick re-projects from GPS instead of freezing at a stale position.
 func (s *Snapper) maybeResetSnapDistance(point GPSPoint) bool {
-	if !snapDistanceResetEnabled(s.config) || s.state.LastBest == nil {
+	if s.state.LastBest == nil {
 		return false
 	}
 
 	ref := s.state.LastBest
+	lateralDist := s.lateralDistFromLastSnapM(point)
+	if maxReset := snapDistanceResetMaxMeter(s.config); maxReset > 0 && lateralDist >= maxReset {
+		s.resetSnapTrackingState()
+		return true
+	}
+
+	if !snapDistanceResetEnabled(s.config) {
+		return false
+	}
+
 	dist := DistanceMeter(point.Point, ref.SnappedPoint)
 	minDist := snapDistanceResetMinMeter(s.config)
 	if dist < minDist {
@@ -78,4 +98,19 @@ func (s *Snapper) resetSnapTrackingState() {
 	s.state.ActiveDirection = activeDir
 	s.state.GrowingSnapDistTicks = 0
 	s.state.LastOutputSnapDistanceM = 0
+}
+
+func markDistanceReset(result *SnapResult, distReset bool) *SnapResult {
+	if distReset && result != nil && result.HeldReason == "" {
+		result.HeldReason = "snap_distance_reset"
+	}
+	return result
+}
+
+func (s *Snapper) lateralDistFromLastSnapM(point GPSPoint) float64 {
+	if s.state.LastBest == nil {
+		return 0
+	}
+	proj := projectOntoSegment(s.state.LastBest.Segment, point, s.state.LastPoint, s.state, s.config)
+	return proj.DistanceMeter
 }

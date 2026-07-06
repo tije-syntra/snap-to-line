@@ -291,6 +291,10 @@ func (s *Snapper) preferNearbyOnActiveSegment(best *Candidate, point GPSPoint) *
 		return best
 	}
 
+	if forwardDepartLatchActive(s.state, s.state.LastBest.Segment.Order) {
+		return best
+	}
+
 	soft := s.softMaxSnapDist()
 	if best.DistanceMeter <= soft {
 		return best

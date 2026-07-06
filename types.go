@@ -157,6 +157,14 @@ type Config struct {
 	// NextStopPassToleranceMeter route measure slack before ToMeasure counts as passed.
 	NextStopPassToleranceMeter float64
 
+	// RequireStopRadiusForSegmentSwitch allows segment order changes only when raw GPS
+	// is within SegmentSwitchStopRadiusMeter of the segment junction stop (gate halte).
+	RequireStopRadiusForSegmentSwitch bool
+
+	// SegmentSwitchStopRadiusMeter max distance from junction stop to allow segment switch.
+	// Zero uses DefaultRouteSegmentSwitchStopRadiusMeter when RequireStopRadiusForSegmentSwitch is true.
+	SegmentSwitchStopRadiusMeter float64
+
 	// FoldedSegmentBranchLock pins snap to the nearest GPS branch when a segment has
 	// more than FoldedSegmentMinViable projections within max snap distance.
 	FoldedSegmentBranchLock bool
@@ -188,6 +196,9 @@ type Config struct {
 
 	// SnapDistanceResetMinMeter minimum raw-to-snap distance before grow-reset applies (default 35).
 	SnapDistanceResetMinMeter float64
+
+	// SnapDistanceResetMaxMeter immediate reset when raw-to-snap distance reaches this (default 100, 0 = off).
+	SnapDistanceResetMaxMeter float64
 }
 
 func DefaultConfig() Config {

@@ -59,4 +59,38 @@ func TestSnapDistanceResetEnabledByDefault(t *testing.T) {
 	cfg := snaptoline.RouteSnapConfig(terminalParallelApproachStops())
 	require.True(t, cfg.SnapDistanceResetOnGrow)
 	require.Equal(t, 2, cfg.SnapDistanceGrowResetTicks)
+	require.Equal(t, 100.0, cfg.SnapDistanceResetMaxMeter)
+}
+
+func TestSnapDistanceResetImmediateWhenExceedsMaxMeter(t *testing.T) {
+	line := orb.LineString{
+		{106.0, -6.0},
+		{106.3, -6.0},
+	}
+	stops := []snaptoline.Stop{
+		{ID: "A", Order: 1, Point: line[0]},
+		{ID: "B", Order: 2, Point: line[1]},
+	}
+	cfg := snaptoline.RouteSnapConfig(stops,
+		snaptoline.WithSnapDistanceResetMaxMeter(100),
+		snaptoline.WithSnapDistanceResetOnGrow(false),
+	)
+	cfg.MaxSnapDistanceMeter = 28
+
+	snapper, err := snaptoline.NewSnapper(line, stops, cfg)
+	require.NoError(t, err)
+
+	_, err = snapper.Snap(snaptoline.GPSPoint{
+		Point: orb.Point{106.08, -6.0}, Bearing: 90, Speed: 30,
+	})
+	require.NoError(t, err)
+
+	// ~444 m north of the last snap — one tick, no grow pattern needed.
+	far, err := snapper.Snap(snaptoline.GPSPoint{
+		Point: orb.Point{106.08, -6.004}, Bearing: 90, Speed: 30,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "snap_distance_reset", far.HeldReason)
+	require.True(t, far.IsOffRoute)
+	require.Equal(t, "no candidates within max snap distance", far.RejectedReason)
 }

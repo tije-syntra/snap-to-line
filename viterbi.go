@@ -21,6 +21,14 @@ type Candidate struct {
 	Prev               *Candidate
 }
 
+// SegmentDepartLatch tracks halte gate presence so a bus can advance to the next
+// segment after departing the junction stop, even when GPS is off-route outside radius.
+type SegmentDepartLatch struct {
+	GateSegmentOrder int
+	WasInsideRadius  bool
+	HasDeparted      bool
+}
+
 type ViterbiState struct {
 	LastCandidates    []Candidate
 	LastBest          *Candidate
@@ -35,6 +43,7 @@ type ViterbiState struct {
 	LastOutputSnapDistanceM float64
 	// GrowingSnapDistTicks counts consecutive ticks where that distance increased.
 	GrowingSnapDistTicks int
+	SegmentDepart        SegmentDepartLatch
 }
 
 // BranchLock pins snap projection on folded segment geometry.
@@ -69,6 +78,7 @@ func (s *ViterbiState) Reset() {
 	s.RecentBranchTicks = nil
 	s.LastOutputSnapDistanceM = 0
 	s.GrowingSnapDistTicks = 0
+	s.SegmentDepart = SegmentDepartLatch{}
 }
 
 func TransitionScore(fromOrder, toOrder, segmentCount int, looping bool) float64 {
@@ -320,7 +330,8 @@ func runViterbiStep(
 		if rejectBackwardCandidate(state, c, segmentCount, point, cfg) {
 			continue
 		}
-		if rejectPrematureSegmentSwitch(state, c, segmentCount, point, cfg) {
+		if rejectSegmentSwitch(state, c, segmentCount, point, cfg) &&
+			(cfg.RequireNextStopBeforeSegmentSwitch || cfg.RequireStopRadiusForSegmentSwitch) {
 			continue
 		}
 

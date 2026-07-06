@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## v1.2.0 — 2026-07-06
+
+- feat: `LiveBusSnapConfig(stops)` — production-tuned preset for live MQTT bus tracking (`Recommended*` constants, `IsLoopRoute`)
+- feat: `OffRoutePolicy`, `DefaultOffRoutePolicy`, `MapOffRoute`, `EtaSnapReliableForPublish`, `SnapDegraded` — shared map/ETA off-route decisions
+- feat: segment switch gated by halte radius (`RequireStopRadiusForSegmentSwitch`, `SegmentSwitchStopRadiusMeter`, default 20 m)
+- feat: segment depart latch — advance to next segment after leaving junction stop off-route
+- feat: immediate Viterbi reset when raw-to-snap distance exceeds `SnapDistanceResetMaxMeter` (default 100 m)
+- docs: README recommended live-bus configuration section and off-route policy table
+- test: `live_bus_config_test`, `off_route_policy_test`, segment-switch radius and snap-distance max reset
+
 ## v1.1.1 — 2026-06-30
 
 - docs: README status reflects v1.1.0 release

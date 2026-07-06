@@ -47,7 +47,7 @@ func main() {
         {ID: "C", Order: 3, Point: line[2]},
     }
 
-    snapper, err := snaptoline.NewSnapper(line, stops, snaptoline.DefaultConfig())
+    snapper, err := snaptoline.NewSnapper(line, stops, snaptoline.LiveBusSnapConfig(stops))
     if err != nil {
         log.Fatal(err)
     }
@@ -100,7 +100,9 @@ Each GPS update produces candidates on nearby segments. Candidates are scored by
 
 ## Configuration
 
-Use `snaptoline.DefaultConfig()` as a starting point and override fields as needed.
+For **live bus tracking** (MQTT GPS, map markers, ETA), use `LiveBusSnapConfig(stops)` — see [Recommended live-bus configuration](#recommended-live-bus-configuration).
+
+For prototyping or custom pipelines, start from `DefaultConfig()` and override fields as needed.
 
 | Field | Default | Description |
 |-------|---------|-------------|
@@ -140,16 +142,86 @@ For live bus tracking, use `RouteSnapConfig(stops, opts...)` which enables backw
 
 Constants: `DefaultRouteMeasureRegressionToleranceMeter`, `DefaultRouteClampBackwardMinConfidence`, `DefaultRouteClampDwellSpeedKmh`, `DefaultRouteMeasureAdvanceSlackMeter`, `DefaultRouteSnappedJumpSlackMeter`, `DefaultRouteSegmentSwitchHysteresisLog`.
 
+## Recommended live-bus configuration
+
+`LiveBusSnapConfig(stops)` bundles production-tuned values used by [snap-to-line-dashboard](https://github.com/tije-syntra/snap-to-line-dashboard) for real-time bus tracking. It is stricter than bare `RouteSnapConfig` defaults: tighter snap radius, stronger backward guards, and segment-switch gates at stops.
+
+```go
+cfg := snaptoline.LiveBusSnapConfig(stops)
+snapper, err := snaptoline.NewSnapper(line, stops, cfg)
+```
+
+Pair with `DefaultOffRoutePolicy()` for map/UI off-route and ETA freeze decisions:
+
+```go
+policy := snaptoline.DefaultOffRoutePolicy()
+result, _ := snapper.Snap(point)
+degraded := snaptoline.SnapDegraded(result)
+offRoute := snaptoline.MapOffRoute(result, degraded, policy)
+etaOK := snaptoline.EtaSnapReliableForPublish(result, degraded, policy)
+```
+
+### Snap settings (`LiveBusSnapConfig`)
+
+| Setting | Value | Notes |
+|---------|-------|-------|
+| `MaxSnapDistanceMeter` | `28` | Reject snaps farther than 28 m from the route |
+| `MaxBearingDiffDegree` | `40` | Stricter bearing gate than `DefaultConfig` (60°) |
+| `MinMovementMeter` | `3` | Lower movement threshold for movement-based bearing |
+| `PreventBackwardTransition` | `true` | Viterbi cannot jump to lower segment order |
+| `MeasureRegressionToleranceMeter` | `10` | Reject measure regressions > 10 m (vs 30 m default) |
+| `ClampBackwardMinConfidence` | `0.78` | Post-Viterbi clamp on low-confidence backward slip |
+| `ClampDwellSpeedKmh` | `10` | Treat ≤ 10 km/h as dwell when clamping at terminals |
+| `MeasureAdvanceSlackMeter` | `8` | Cap unrealistic forward measure jumps on folded geometry |
+| `SnappedJumpSlackMeter` | `2` | Cap lateral snap jumps vs GPS movement |
+| `SegmentSwitchHysteresisLog` | `2.5` | Require stronger score margin to switch segment |
+| `RequireNextStopBeforeSegmentSwitch` | `true` | Bus must pass next stop before switching segment |
+| `RequireStopRadiusForSegmentSwitch` | `true` | Segment switch only inside stop radius |
+| `SegmentSwitchStopRadiusMeter` | `20` | Stop-radius gate for segment switches |
+| `FoldedSegmentBranchLock` | `true` | Stabilize overlapping outbound/inbound branches |
+| `SnapContinuityFromPrevious` | `true` | Prefer continuity with previous snap on folded routes |
+| `SnapDistanceResetMaxMeter` | `100` | Hard reset when lateral distance exceeds 100 m |
+| `LoopClosureToleranceMeter` | `15` | Detect loop when first/last stop within 15 m |
+
+**Non-loop routes** also enable grow-reset: after 2 consecutive ticks with snap distance growing by ≥ 8 m and above 35 m, the snapper resets Viterbi state.
+
+**Loop routes** (`IsLoopRoute(stops) == true`) disable grow-reset and set `NextStopPassToleranceMeter` to `18` m for smoother closure at the repeated terminal stop.
+
+All values are exported as `Recommended*` constants (e.g. `RecommendedMaxSnapDistanceMeter`) for partial overrides:
+
+```go
+cfg := snaptoline.LiveBusSnapConfig(stops)
+cfg.MaxSnapDistanceMeter = 35 // override one field after the preset
+```
+
+### Off-route policy (`DefaultOffRoutePolicy`)
+
+| Setting | Value | Effect |
+|---------|-------|--------|
+| `MaxSnapDistanceMeter` | `28` | Aligns with snap max distance |
+| `OffRouteSoftDistFraction` | `0.54` | Soft off-route at ~15 m (28 × 0.54) when confidence is low |
+| `OffRouteMinConfidence` | `0.2` | Below this → always off-route on map |
+| `OffRouteSoftConfidence` | `0.5` | Below this + beyond soft distance → off-route |
+
+`MapOffRoute` respects held-segment masking (ETA hold keeps the map marker on-route). `EtaSnapReliableForPublish` returns `false` when snap is degraded or off-route by policy.
+
 ### Usage examples
 
-Defaults only:
+Recommended preset (live bus):
+
+```go
+cfg := snaptoline.LiveBusSnapConfig(stops)
+snapper, err := snaptoline.NewSnapper(line, stops, cfg)
+```
+
+`RouteSnapConfig` with library defaults (looser than live-bus preset):
 
 ```go
 cfg := snaptoline.RouteSnapConfig(stops)
 snapper, err := snaptoline.NewSnapper(line, stops, cfg)
 ```
 
-Functional options (recommended):
+Functional options (manual tuning):
 
 ```go
 cfg := snaptoline.RouteSnapConfig(stops,
@@ -248,11 +320,15 @@ snapper.SetTripDirection(snaptoline.DirectionInbound)
 
 | Function | Description |
 |----------|-------------|
-| `RouteSnapConfig(stops, opts...)` | Live-bus defaults with optional overrides |
+| `LiveBusSnapConfig(stops)` | **Recommended** production preset for live bus tracking |
+| `IsLoopRoute(stops)` | Detect loop routes (first/last stop within 15 m) |
+| `RouteSnapConfig(stops, opts...)` | Route-aware defaults with optional overrides |
+| `DefaultOffRoutePolicy()` | Off-route / ETA thresholds aligned with live-bus snap |
+| `MapOffRoute`, `EtaSnapReliableForPublish`, `SnapDegraded` | Post-snap policy helpers |
 | `RouteSnapParams` | Struct of optional pointer fields for overrides |
 | `WithMeasureRegressionTolerance`, etc. | Functional option helpers |
 
-See [RouteSnapConfig defaults](#routesnapconfig-defaults) above.
+See [Recommended live-bus configuration](#recommended-live-bus-configuration) and [RouteSnapConfig defaults](#routesnapconfig-defaults).
 
 ### SnapResult
 
@@ -297,6 +373,8 @@ Tests cover:
 ```
 .
 ├── snapper.go          # Public API
+├── live_bus_config.go  # LiveBusSnapConfig production preset
+├── off_route_policy.go # Off-route and ETA reliability policy
 ├── segment.go          # Segment builder
 ├── loop.go             # Sequential stop projection
 ├── viterbi.go          # Candidate scoring and Viterbi
@@ -317,4 +395,4 @@ MIT License — see [LICENSE](LICENSE). Redistributable with minimal restriction
 
 ## Status
 
-**v1.1.0** — stable. Breaking API changes will require a new major version (`/v2` module path per Go convention).
+**v1.2.0** — stable. Breaking API changes will require a new major version (`/v2` module path per Go convention).

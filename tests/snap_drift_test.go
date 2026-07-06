@@ -108,7 +108,7 @@ func TestGpsDriftFarFromSnapDoesNotFreezeMeasure(t *testing.T) {
 func TestPickNearestForwardCandidateSkipsLowerSegment(t *testing.T) {
 	line := terminalOverlapLine()
 	stops := terminalOverlapStops()
-	cfg := snaptoline.RouteSnapConfig(stops)
+	cfg := snaptoline.RouteSnapConfig(stops, snaptoline.WithRequireStopRadiusForSegmentSwitch(false))
 	snapper, err := snaptoline.NewSnapper(line, stops, cfg)
 	require.NoError(t, err)
 

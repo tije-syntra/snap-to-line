@@ -45,20 +45,29 @@ func NewSnapper(line orb.LineString, stops []Stop, cfg Config) (*Snapper, error)
 	}, nil
 }
 
+func (s *Snapper) updateSegmentDepartLatch(point GPSPoint) {
+	updateSegmentDepartLatch(s.state, point, s.config)
+}
+
 func (s *Snapper) Snap(point GPSPoint) (*SnapResult, error) {
 	distReset := s.maybeResetSnapDistance(point)
+	s.updateSegmentDepartLatch(point)
 
 	candidates := findCandidates(s.segments, point, s.state.LastPoint, s.state, s.config)
 	if len(candidates) == 0 {
 		if result, best := s.tryHoldLastSegment(point, "no_candidates"); result != nil {
-			return s.finishSnap(nil, best, result, point), nil
+			if promoted := s.enforceDepartLatch(best, point); promoted != nil {
+				best = promoted
+				result = s.resultFromCandidate(*best, point)
+			}
+			return markDistanceReset(s.finishSnap(nil, best, result, point), distReset), nil
 		}
-		return &SnapResult{
+		return markDistanceReset(&SnapResult{
 			OriginalPoint:  point.Point,
 			SnappedPoint:   point.Point,
 			IsOffRoute:     true,
 			RejectedReason: "no candidates within max snap distance",
-		}, nil
+		}, distReset), nil
 	}
 
 	best := runViterbiStep(s.state, candidates, len(s.segments), point, s.config)
@@ -81,6 +90,10 @@ func (s *Snapper) Snap(point GPSPoint) (*SnapResult, error) {
 
 	if enforced := s.enforceNextStopBeforeSegmentSwitch(best, point); enforced != nil {
 		best = enforced
+	}
+
+	if promoted := s.enforceDepartLatch(best, point); promoted != nil {
+		best = promoted
 	}
 
 	if locked := s.enforceBranchLock(best, point); locked != nil {
@@ -108,7 +121,7 @@ func (s *Snapper) Snap(point GPSPoint) (*SnapResult, error) {
 
 	if result.SegmentID == "" || result.SegmentOrder <= 0 {
 		if held, heldBest := s.tryHoldLastSegment(point, "empty_segment"); held != nil {
-			return s.finishSnap(candidates, heldBest, held, point), nil
+			return markDistanceReset(s.finishSnap(candidates, heldBest, held, point), distReset), nil
 		}
 	}
 
@@ -144,10 +157,7 @@ func (s *Snapper) Snap(point GPSPoint) (*SnapResult, error) {
 	}
 
 	result = s.finishSnap(candidates, best, result, point)
-	if distReset && result != nil && result.HeldReason == "" {
-		result.HeldReason = "snap_distance_reset"
-	}
-	return result, nil
+	return markDistanceReset(result, distReset), nil
 }
 
 func (s *Snapper) commitSnapState(candidates []Candidate, best *Candidate, point GPSPoint, result *SnapResult) {

@@ -16,6 +16,7 @@ const (
 	DefaultRouteWildGPSMaxAdvanceFactor         = 0.5
 	DefaultRouteMaxForwardSnapMeter             = 0.0 // 0 = no per-tick forward cap
 	DefaultRouteNextStopPassToleranceMeter      = 8.0
+	DefaultRouteSegmentSwitchStopRadiusMeter    = 20.0
 	DefaultFoldedSegmentMinViable               = 3
 	DefaultBranchLockSearchWindowM              = 20.0
 	DefaultBranchUnlockNormalTicks              = 3
@@ -23,6 +24,7 @@ const (
 	DefaultSnapDistanceGrowResetTicks           = 2
 	DefaultSnapDistanceGrowMinDeltaM            = 8.0
 	DefaultSnapDistanceResetMinMeter            = 35.0
+	DefaultSnapDistanceResetMaxMeter            = 100.0
 )
 
 // RouteSnapParams holds optional overrides for RouteSnapConfig.
@@ -121,6 +123,14 @@ type RouteSnapParams struct {
 	// Default: DefaultRouteNextStopPassToleranceMeter (8) when nil.
 	NextStopPassToleranceMeter *float64
 
+	// RequireStopRadiusForSegmentSwitch allows segment switch only near junction halte.
+	// Default: true when nil.
+	RequireStopRadiusForSegmentSwitch *bool
+
+	// SegmentSwitchStopRadiusMeter radius around junction stop for segment switch.
+	// Default: DefaultRouteSegmentSwitchStopRadiusMeter (20) when nil.
+	SegmentSwitchStopRadiusMeter *float64
+
 	// FoldedSegmentBranchLock pins snap on folded geometry (>2 viable projections).
 	// Default: true when nil.
 	FoldedSegmentBranchLock *bool
@@ -154,6 +164,10 @@ type RouteSnapParams struct {
 
 	// SnapDistanceResetMinMeter min raw-to-snap distance before grow-reset applies. Default: 35 when nil.
 	SnapDistanceResetMinMeter *float64
+
+	// SnapDistanceResetMaxMeter immediate Viterbi reset when raw-to-snap distance reaches this.
+	// Default: DefaultSnapDistanceResetMaxMeter (100) when nil. Set 0 to disable.
+	SnapDistanceResetMaxMeter *float64
 }
 
 // RouteSnapOption configures RouteSnapConfig. Prefer helper functions below or RouteSnapParamsOption.
@@ -254,6 +268,14 @@ func WithNextStopPassToleranceMeter(m float64) RouteSnapOption {
 	return func(p *RouteSnapParams) { p.NextStopPassToleranceMeter = &m }
 }
 
+func WithRequireStopRadiusForSegmentSwitch(v bool) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.RequireStopRadiusForSegmentSwitch = &v }
+}
+
+func WithSegmentSwitchStopRadiusMeter(m float64) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.SegmentSwitchStopRadiusMeter = &m }
+}
+
 func WithFoldedSegmentBranchLock(v bool) RouteSnapOption {
 	return func(p *RouteSnapParams) { p.FoldedSegmentBranchLock = &v }
 }
@@ -292,6 +314,10 @@ func WithSnapDistanceGrowMinDeltaM(m float64) RouteSnapOption {
 
 func WithSnapDistanceResetMinMeter(m float64) RouteSnapOption {
 	return func(p *RouteSnapParams) { p.SnapDistanceResetMinMeter = &m }
+}
+
+func WithSnapDistanceResetMaxMeter(m float64) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.SnapDistanceResetMaxMeter = &m }
 }
 
 // DisableBackwardClamp sets ClampBackwardMinConfidence to 0 (disables post-Viterbi clamp).
@@ -441,6 +467,18 @@ func routeSnapConfig(stops []Stop, params RouteSnapParams) Config {
 	}
 	cfg.NextStopPassToleranceMeter = nextStopTol
 
+	requireStopRadius := true
+	if params.RequireStopRadiusForSegmentSwitch != nil {
+		requireStopRadius = *params.RequireStopRadiusForSegmentSwitch
+	}
+	cfg.RequireStopRadiusForSegmentSwitch = requireStopRadius
+
+	stopRadius := DefaultRouteSegmentSwitchStopRadiusMeter
+	if params.SegmentSwitchStopRadiusMeter != nil {
+		stopRadius = *params.SegmentSwitchStopRadiusMeter
+	}
+	cfg.SegmentSwitchStopRadiusMeter = stopRadius
+
 	foldedLock := true
 	if params.FoldedSegmentBranchLock != nil {
 		foldedLock = *params.FoldedSegmentBranchLock
@@ -500,6 +538,12 @@ func routeSnapConfig(stops []Stop, params RouteSnapParams) Config {
 		resetMin = *params.SnapDistanceResetMinMeter
 	}
 	cfg.SnapDistanceResetMinMeter = resetMin
+
+	resetMax := DefaultSnapDistanceResetMaxMeter
+	if params.SnapDistanceResetMaxMeter != nil {
+		resetMax = *params.SnapDistanceResetMaxMeter
+	}
+	cfg.SnapDistanceResetMaxMeter = resetMax
 
 	return cfg
 }
@@ -568,6 +612,12 @@ func mergeRouteSnapParams(base, override RouteSnapParams) RouteSnapParams {
 	if override.NextStopPassToleranceMeter != nil {
 		base.NextStopPassToleranceMeter = override.NextStopPassToleranceMeter
 	}
+	if override.RequireStopRadiusForSegmentSwitch != nil {
+		base.RequireStopRadiusForSegmentSwitch = override.RequireStopRadiusForSegmentSwitch
+	}
+	if override.SegmentSwitchStopRadiusMeter != nil {
+		base.SegmentSwitchStopRadiusMeter = override.SegmentSwitchStopRadiusMeter
+	}
 	if override.FoldedSegmentBranchLock != nil {
 		base.FoldedSegmentBranchLock = override.FoldedSegmentBranchLock
 	}
@@ -597,6 +647,9 @@ func mergeRouteSnapParams(base, override RouteSnapParams) RouteSnapParams {
 	}
 	if override.SnapDistanceResetMinMeter != nil {
 		base.SnapDistanceResetMinMeter = override.SnapDistanceResetMinMeter
+	}
+	if override.SnapDistanceResetMaxMeter != nil {
+		base.SnapDistanceResetMaxMeter = override.SnapDistanceResetMaxMeter
 	}
 	return base
 }
