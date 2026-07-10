@@ -19,6 +19,8 @@ func TestForwardSnapCapAt50Meters(t *testing.T) {
 
 	cfg := snaptoline.RouteSnapConfig(stops,
 		snaptoline.WithMaxForwardSnapMeter(50),
+		snaptoline.WithTeleportDetection(false),
+		snaptoline.WithGpsJumpDetection(false),
 	)
 	snapper, err := snaptoline.NewSnapper(line, stops, cfg)
 	require.NoError(t, err)
@@ -54,6 +56,8 @@ func TestForwardSnapCapDisabled(t *testing.T) {
 
 	cfg := snaptoline.RouteSnapConfig(stops,
 		snaptoline.WithMaxForwardSnapMeter(0),
+		snaptoline.WithTeleportDetection(false),
+		snaptoline.WithGpsJumpDetection(false),
 	)
 	snapper, err := snaptoline.NewSnapper(line, stops, cfg)
 	require.NoError(t, err)

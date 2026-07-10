@@ -51,6 +51,17 @@ func (s *Snapper) updateSegmentDepartLatch(point GPSPoint) {
 
 func (s *Snapper) Snap(point GPSPoint) (*SnapResult, error) {
 	distReset := s.maybeResetSnapDistance(point)
+
+	if teleportResult, teleportBest := s.stabilizeGpsTeleport(point); teleportResult != nil {
+		return markDistanceReset(s.finishSnap(nil, teleportBest, teleportResult, point, nil, nil), distReset), nil
+	}
+
+	jumpEval := s.evaluateGpsJump(point)
+	if jumpResult, jumpBest := s.stabilizeGpsJump(point, jumpEval); jumpResult != nil {
+		return markDistanceReset(s.finishSnap(nil, jumpBest, jumpResult, point, nil, nil), distReset), nil
+	}
+
+	s.prepareReverseDetection(point)
 	s.updateSegmentDepartLatch(point)
 
 	candidates := findCandidates(s.segments, point, s.state.LastPoint, s.state, s.config)
@@ -60,14 +71,15 @@ func (s *Snapper) Snap(point GPSPoint) (*SnapResult, error) {
 				best = promoted
 				result = s.resultFromCandidate(*best, point)
 			}
-			return markDistanceReset(s.finishSnap(nil, best, result, point), distReset), nil
+			return markDistanceReset(s.finishSnap(nil, best, result, point, nil, nil), distReset), nil
 		}
-		return markDistanceReset(&SnapResult{
+		offRouteResult := ApplyConsecutiveOffRouteDetection(s.state, s.config, &SnapResult{
 			OriginalPoint:  point.Point,
 			SnappedPoint:   point.Point,
 			IsOffRoute:     true,
 			RejectedReason: "no candidates within max snap distance",
-		}, distReset), nil
+		})
+		return markDistanceReset(offRouteResult, distReset), nil
 	}
 
 	best := runViterbiStep(s.state, candidates, len(s.segments), point, s.config)
@@ -103,13 +115,20 @@ func (s *Snapper) Snap(point GPSPoint) (*SnapResult, error) {
 	if s.state.LastBest != nil && s.config.PreventBackwardTransition {
 		prevOrder := s.state.LastBest.Segment.Order
 		if best.Segment.Order < prevOrder &&
-			!isLoopWrapTransition(prevOrder, best.Segment.Order, len(s.segments), s.config.Looping) {
+			!isLoopWrapTransition(prevOrder, best.Segment.Order, len(s.segments), s.config.Looping) &&
+			!s.shouldAllowBackwardSnap() {
 			fallback := s.candidateOnSegment(s.state.LastBest.Segment, point)
 			best = &fallback
 		}
 	}
 
 	result := s.resultFromCandidate(*best, point)
+
+	reverseEval := s.evaluateReverseDetection(point, best.Measure)
+	if revResult, revBest := s.stabilizeReverseDetection(point, best, reverseEval); revResult != nil {
+		best = revBest
+		result = revResult
+	}
 
 	if s.shouldClampBackward(result) || s.shouldClampMeasureRegression(result) || s.shouldClampLateral(result, point) {
 		if clamped := s.clampToPreviousSegment(point); clamped != nil {
@@ -121,7 +140,7 @@ func (s *Snapper) Snap(point GPSPoint) (*SnapResult, error) {
 
 	if result.SegmentID == "" || result.SegmentOrder <= 0 {
 		if held, heldBest := s.tryHoldLastSegment(point, "empty_segment"); held != nil {
-			return markDistanceReset(s.finishSnap(candidates, heldBest, held, point), distReset), nil
+			return markDistanceReset(s.finishSnap(candidates, heldBest, held, point, reverseEval, nil), distReset), nil
 		}
 	}
 
@@ -151,12 +170,18 @@ func (s *Snapper) Snap(point GPSPoint) (*SnapResult, error) {
 	}
 
 	best = s.enforceForwardSegmentOrder(best, point)
-	if result != nil && s.state.LastBest != nil &&
+	if result != nil && s.state.LastBest != nil && !s.shouldAllowBackwardSnap() &&
 		(result.SegmentOrder < s.state.LastBest.Segment.Order || s.isBackwardSegmentTransition(best)) {
 		result = s.resultFromCandidate(*best, point)
 	}
 
-	result = s.finishSnap(candidates, best, result, point)
+	segmentSeqEval := s.evaluateSegmentSequence(point, result, best)
+	if seqResult, seqBest := s.stabilizeSegmentSequence(point, best, result, segmentSeqEval); seqResult != nil && seqBest != nil {
+		best = seqBest
+		result = seqResult
+	}
+
+	result = s.finishSnap(candidates, best, result, point, reverseEval, segmentSeqEval)
 	return markDistanceReset(result, distReset), nil
 }
 
@@ -223,7 +248,7 @@ func SnapResultFromSegment(seg Segment, stops []Stop, point GPSPoint, prev *GPSP
 	lineBearing := BearingAtMeasure(seg.Geometry, proj.Measure)
 
 	busBearing, hasBearing := resolveBusBearing(point, prev, cfg)
-	weaken := shouldWeakenDirectionValidation(point, prev, cfg)
+	weaken := shouldWeakenDirectionValidation(point, prev, cfg, false)
 	_, directionDiff := scoreDirection(busBearing, hasBearing, lineBearing, cfg, weaken)
 	if !hasBearing {
 		busBearing = lineBearing

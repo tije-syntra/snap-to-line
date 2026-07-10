@@ -22,7 +22,11 @@ func TestNoBackwardSnapFreezesMeasureRegression(t *testing.T) {
 		{ID: "C", Order: 3, Point: line[2]},
 	}
 
-	cfg := snaptoline.RouteSnapConfig(stops)
+	cfg := snaptoline.RouteSnapConfig(stops,
+		snaptoline.WithTeleportDetection(false),
+		snaptoline.WithGpsJumpDetection(false),
+		snaptoline.WithReverseDetection(false),
+	)
 	snapper, err := snaptoline.NewSnapper(line, stops, cfg)
 	require.NoError(t, err)
 
@@ -55,7 +59,11 @@ func TestNoBackwardSnapAllowsForward(t *testing.T) {
 		{ID: "B", Order: 2, Point: line[1]},
 	}
 
-	cfg := snaptoline.RouteSnapConfig(stops)
+	cfg := snaptoline.RouteSnapConfig(stops,
+		snaptoline.WithTeleportDetection(false),
+		snaptoline.WithGpsJumpDetection(false),
+		snaptoline.WithReverseDetection(false),
+	)
 	snapper, err := snaptoline.NewSnapper(line, stops, cfg)
 	require.NoError(t, err)
 
@@ -69,6 +77,7 @@ func TestNoBackwardSnapAllowsForward(t *testing.T) {
 
 	ahead, err := snapper.Snap(snaptoline.GPSPoint{
 		Point:     orb.Point{106.025, -6.0},
+		Speed:     30,
 		Timestamp: ts + 2000,
 	})
 	require.NoError(t, err)
@@ -83,7 +92,11 @@ func TestNoBackwardCreepsForwardWhenGPSDriftsOffLine(t *testing.T) {
 		{ID: "B", Order: 2, Point: line[1]},
 	}
 
-	cfg := snaptoline.RouteSnapConfig(stops)
+	cfg := snaptoline.RouteSnapConfig(stops,
+		snaptoline.WithTeleportDetection(false),
+		snaptoline.WithGpsJumpDetection(false),
+		snaptoline.WithReverseDetection(false),
+	)
 	snapper, err := snaptoline.NewSnapper(line, stops, cfg)
 	require.NoError(t, err)
 

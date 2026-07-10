@@ -44,6 +44,19 @@ type ViterbiState struct {
 	// GrowingSnapDistTicks counts consecutive ticks where that distance increased.
 	GrowingSnapDistTicks int
 	SegmentDepart        SegmentDepartLatch
+	OffRouteCount        int
+	JumpCount            int
+	LastGpsJumpRatio     float64
+	LastGpsJumpLevel     string
+	ReverseCount         int
+	TurnaroundValidated  bool
+	RecentGpsPoints      []RecentGpsPoint
+	LastValidSegmentID   string
+	LastValidSegmentOrder int
+	LastValidProgress    float64
+	LastValidSnappedPoint orb.Point
+	SegmentJumpCount     int
+	SkippedSegmentCount  int
 }
 
 // BranchLock pins snap projection on folded segment geometry.
@@ -79,6 +92,19 @@ func (s *ViterbiState) Reset() {
 	s.LastOutputSnapDistanceM = 0
 	s.GrowingSnapDistTicks = 0
 	s.SegmentDepart = SegmentDepartLatch{}
+	s.OffRouteCount = 0
+	s.JumpCount = 0
+	s.LastGpsJumpRatio = 0
+	s.LastGpsJumpLevel = ""
+	s.ReverseCount = 0
+	s.TurnaroundValidated = false
+	s.RecentGpsPoints = nil
+	s.LastValidSegmentID = ""
+	s.LastValidSegmentOrder = 0
+	s.LastValidProgress = 0
+	s.LastValidSnappedPoint = orb.Point{}
+	s.SegmentJumpCount = 0
+	s.SkippedSegmentCount = 0
 }
 
 func TransitionScore(fromOrder, toOrder, segmentCount int, looping bool) float64 {
@@ -155,7 +181,11 @@ func findCandidates(
 	}
 
 	busBearing, hasBearing := resolveBusBearing(point, prev, cfg)
-	weaken := shouldWeakenDirectionValidation(point, prev, cfg)
+	turnaroundValidated := false
+	if state != nil {
+		turnaroundValidated = state.TurnaroundValidated
+	}
+	weaken := shouldWeakenDirectionValidation(point, prev, cfg, turnaroundValidated)
 
 	activeTrip := cfg.TripDirection
 	if cfg.UseTripDirection {
@@ -197,6 +227,10 @@ func isLoopWrapTransition(fromOrder, toOrder, segmentCount int, looping bool) bo
 
 func rejectBackwardCandidate(state *ViterbiState, c Candidate, segmentCount int, point GPSPoint, cfg Config) bool {
 	if state.LastBest == nil || !cfg.PreventBackwardTransition {
+		return false
+	}
+
+	if cfg.ReverseDetection && IsBackwardSnapAllowed(state, cfg) {
 		return false
 	}
 
@@ -328,6 +362,9 @@ func runViterbiStep(
 	for i := range candidates {
 		c := candidates[i]
 		if rejectBackwardCandidate(state, c, segmentCount, point, cfg) {
+			continue
+		}
+		if RejectSegmentJumpCandidate(state, c, segmentCount, cfg) {
 			continue
 		}
 		if rejectSegmentSwitch(state, c, segmentCount, point, cfg) &&

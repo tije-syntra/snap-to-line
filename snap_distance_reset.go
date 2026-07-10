@@ -1,5 +1,7 @@
 package snaptoline
 
+import "github.com/paulmach/orb"
+
 func snapDistanceResetEnabled(cfg Config) bool {
 	return cfg.SnapDistanceResetOnGrow
 }
@@ -94,10 +96,31 @@ func (s *Snapper) maybeResetSnapDistance(point GPSPoint) bool {
 
 func (s *Snapper) resetSnapTrackingState() {
 	activeDir := s.state.ActiveDirection
+	preserved := struct {
+		lastValidSegmentID        string
+		lastValidSegmentOrder     int
+		lastValidProgress         float64
+		lastValidSnappedPoint     orb.Point
+		segmentJumpCount          int
+		skippedSegmentCount       int
+	}{
+		lastValidSegmentID:    s.state.LastValidSegmentID,
+		lastValidSegmentOrder: s.state.LastValidSegmentOrder,
+		lastValidProgress:     s.state.LastValidProgress,
+		lastValidSnappedPoint: s.state.LastValidSnappedPoint,
+		segmentJumpCount:      s.state.SegmentJumpCount,
+		skippedSegmentCount:   s.state.SkippedSegmentCount,
+	}
 	s.state.Reset()
 	s.state.ActiveDirection = activeDir
 	s.state.GrowingSnapDistTicks = 0
 	s.state.LastOutputSnapDistanceM = 0
+	s.state.LastValidSegmentID = preserved.lastValidSegmentID
+	s.state.LastValidSegmentOrder = preserved.lastValidSegmentOrder
+	s.state.LastValidProgress = preserved.lastValidProgress
+	s.state.LastValidSnappedPoint = preserved.lastValidSnappedPoint
+	s.state.SegmentJumpCount = preserved.segmentJumpCount
+	s.state.SkippedSegmentCount = preserved.skippedSegmentCount
 }
 
 func markDistanceReset(result *SnapResult, distReset bool) *SnapResult {

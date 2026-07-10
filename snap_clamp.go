@@ -337,7 +337,7 @@ func (s *Snapper) candidateFromProjection(seg Segment, point GPSPoint, proj Proj
 	lineBearing := BearingAtMeasure(seg.Geometry, proj.Measure)
 
 	busBearing, hasBearing := resolveBusBearing(point, s.state.LastPoint, s.config)
-	weaken := shouldWeakenDirectionValidation(point, s.state.LastPoint, s.config)
+	weaken := shouldWeakenDirectionValidation(point, s.state.LastPoint, s.config, s.state.TurnaroundValidated)
 	emission := EmissionScore(proj.DistanceMeter, s.config.MaxSnapDistanceMeter)
 	dirScore, _ := scoreDirection(busBearing, hasBearing, lineBearing, s.config, weaken)
 	tripScore := TripDirectionScore(seg.Direction, s.config.TripDirection)
@@ -356,7 +356,7 @@ func (s *Snapper) candidateFromProjection(seg Segment, point GPSPoint, proj Proj
 
 func (s *Snapper) resultFromCandidate(best Candidate, point GPSPoint) *SnapResult {
 	busBearing, hasBearing := resolveBusBearing(point, s.state.LastPoint, s.config)
-	weaken := shouldWeakenDirectionValidation(point, s.state.LastPoint, s.config)
+	weaken := shouldWeakenDirectionValidation(point, s.state.LastPoint, s.config, s.state.TurnaroundValidated)
 	_, directionDiff := scoreDirection(busBearing, hasBearing, best.LineBearing, s.config, weaken)
 
 	if !hasBearing && s.state.LastBest != nil {

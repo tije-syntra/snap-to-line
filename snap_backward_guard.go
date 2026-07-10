@@ -17,6 +17,9 @@ func (s *Snapper) isBackwardSegmentTransition(best *Candidate) bool {
 
 // enforceForwardSegmentOrder rejects any candidate on a lower segment order than the last snap.
 func (s *Snapper) enforceForwardSegmentOrder(best *Candidate, point GPSPoint) *Candidate {
+	if s.shouldAllowBackwardSnap() {
+		return best
+	}
 	if !s.isBackwardSegmentTransition(best) {
 		return best
 	}
@@ -182,7 +185,7 @@ func (s *Snapper) noBackwardSnapEnabled() bool {
 	return s.config.PreventBackwardTransition
 }
 
-func (s *Snapper) finishSnap(candidates []Candidate, best *Candidate, result *SnapResult, point GPSPoint) *SnapResult {
+func (s *Snapper) finishSnap(candidates []Candidate, best *Candidate, result *SnapResult, point GPSPoint, reverseEval *ReverseEvaluation, segmentSeqEval *SegmentSequenceEvaluation) *SnapResult {
 	if best == nil {
 		return result
 	}
@@ -192,6 +195,15 @@ func (s *Snapper) finishSnap(candidates []Candidate, best *Candidate, result *Sn
 	if adjusted, fBest := s.enforceNoBackwardSnap(best, point); adjusted != nil {
 		best = fBest
 		result = adjusted
+	}
+	if result != nil {
+		result = ApplyConsecutiveOffRouteDetection(s.state, s.config, result)
+		result = ApplyGpsJumpResultMetadata(s.state, s.config, result)
+		result = ApplyReverseResultMetadata(s.state, s.config, result, reverseEval)
+		result = ApplySegmentSequenceResultMetadata(s.state, s.config, result)
+	}
+	if segmentSeqEval == nil || segmentSeqEval.Accept {
+		s.updateLastValidSegment(result, best, segmentSeqEval)
 	}
 	s.updateBranchLock(best, point)
 	s.annotateBranchLock(result)

@@ -28,6 +28,14 @@ func TestRouteSnapConfigDefaults(t *testing.T) {
 	require.Equal(t, DefaultRouteWildGPSMaxAdvanceFactor, cfg.WildGPSMaxAdvanceFactor)
 	require.Equal(t, DefaultRouteMaxForwardSnapMeter, cfg.MaxForwardSnapMeter)
 	require.True(t, cfg.NoBackwardSnap)
+	require.True(t, cfg.TeleportDetection)
+	require.Equal(t, DefaultRouteTeleportDistanceMeter, cfg.TeleportDistanceMeter)
+	require.True(t, cfg.OffRouteDetection)
+	require.Equal(t, DefaultOffRouteDistanceMeter, cfg.OffRouteDistanceMeter)
+	require.True(t, cfg.GpsJumpDetection)
+	require.Equal(t, DefaultGpsJumpMinExpectedMeter, cfg.GpsJumpMinExpectedMeter)
+	require.True(t, cfg.ReverseDetection)
+	require.True(t, cfg.SegmentSequenceValidation)
 }
 
 func TestRouteSnapConfigWithOptions(t *testing.T) {

@@ -168,6 +168,54 @@ type RouteSnapParams struct {
 	// SnapDistanceResetMaxMeter immediate Viterbi reset when raw-to-snap distance reaches this.
 	// Default: DefaultSnapDistanceResetMaxMeter (100) when nil. Set 0 to disable.
 	SnapDistanceResetMaxMeter *float64
+
+	// TeleportDetection rejects implausibly fast GPS movement within TeleportTimeSec.
+	// Default: true when nil.
+	TeleportDetection *bool
+	TeleportDistanceMeter *float64
+	TeleportTimeSec *float64
+	TeleportSpeedMatchFactor *float64
+
+	// OffRouteDetection flags off-route after consecutive samples beyond OffRouteDistanceMeter.
+	// Default: true when nil.
+	OffRouteDetection *bool
+	OffRouteDistanceMeter *float64
+	OffRouteConsecutiveSamples *int
+
+	// GpsJumpDetection classifies GPS jumps by expected-vs-actual distance ratio.
+	// Default: true when nil.
+	GpsJumpDetection *bool
+	GpsJumpExpectedFactor *float64
+	GpsJumpMinExpectedMeter *float64
+	GpsJumpWarningRatio *float64
+	GpsJumpSuspiciousRatio *float64
+	GpsJumpRejectRatio *float64
+	GpsJumpCountDistanceMeter *float64
+
+	// ReverseDetection holds backward measure movement with turnaround validation.
+	// Default: true when nil.
+	ReverseDetection *bool
+	ReverseMeasureEpsilonMeter *float64
+	ReverseAcceptAfterSamples *int
+	ReverseIgnoreMeter *float64
+	ReverseHoldMeter *float64
+	ReverseWarningMeter *float64
+	ReverseMinSpeedKmh *float64
+	ReverseTurnDetection *bool
+	ReverseTurnSampleWindow *int
+	ReverseTurnMinMovementMeter *float64
+	ReverseTurnMinMovementAngleDegree *float64
+	ReverseTurnCumulativeAngleDegree *float64
+	ReverseTurnRouteOppositionDegree *float64
+
+	// SegmentSequenceValidation rejects or recovers invalid segment order jumps.
+	// Default: true when nil.
+	SegmentSequenceValidation *bool
+	SegmentJumpRecoverySamples *int
+	SegmentJumpRecoveryMinConfidence *float64
+	SegmentJumpRecoveryMaxDistanceMeter *float64
+	SegmentJumpRecoveryMaxDirectionDiffDegree *float64
+	SegmentJumpRecoveryGpsFactor *float64
 }
 
 // RouteSnapOption configures RouteSnapConfig. Prefer helper functions below or RouteSnapParamsOption.
@@ -318,6 +366,138 @@ func WithSnapDistanceResetMinMeter(m float64) RouteSnapOption {
 
 func WithSnapDistanceResetMaxMeter(m float64) RouteSnapOption {
 	return func(p *RouteSnapParams) { p.SnapDistanceResetMaxMeter = &m }
+}
+
+func WithTeleportDetection(v bool) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.TeleportDetection = &v }
+}
+
+func WithTeleportDistanceMeter(m float64) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.TeleportDistanceMeter = &m }
+}
+
+func WithTeleportTimeSec(sec float64) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.TeleportTimeSec = &sec }
+}
+
+func WithTeleportSpeedMatchFactor(v float64) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.TeleportSpeedMatchFactor = &v }
+}
+
+func WithOffRouteDetection(v bool) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.OffRouteDetection = &v }
+}
+
+func WithOffRouteDistanceMeter(m float64) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.OffRouteDistanceMeter = &m }
+}
+
+func WithOffRouteConsecutiveSamples(n int) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.OffRouteConsecutiveSamples = &n }
+}
+
+func WithGpsJumpDetection(v bool) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.GpsJumpDetection = &v }
+}
+
+func WithGpsJumpExpectedFactor(v float64) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.GpsJumpExpectedFactor = &v }
+}
+
+func WithGpsJumpMinExpectedMeter(m float64) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.GpsJumpMinExpectedMeter = &m }
+}
+
+func WithGpsJumpWarningRatio(v float64) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.GpsJumpWarningRatio = &v }
+}
+
+func WithGpsJumpSuspiciousRatio(v float64) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.GpsJumpSuspiciousRatio = &v }
+}
+
+func WithGpsJumpRejectRatio(v float64) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.GpsJumpRejectRatio = &v }
+}
+
+func WithGpsJumpCountDistanceMeter(m float64) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.GpsJumpCountDistanceMeter = &m }
+}
+
+func WithReverseDetection(v bool) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.ReverseDetection = &v }
+}
+
+func WithReverseMeasureEpsilonMeter(m float64) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.ReverseMeasureEpsilonMeter = &m }
+}
+
+func WithReverseAcceptAfterSamples(n int) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.ReverseAcceptAfterSamples = &n }
+}
+
+func WithReverseIgnoreMeter(m float64) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.ReverseIgnoreMeter = &m }
+}
+
+func WithReverseHoldMeter(m float64) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.ReverseHoldMeter = &m }
+}
+
+func WithReverseWarningMeter(m float64) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.ReverseWarningMeter = &m }
+}
+
+func WithReverseMinSpeedKmh(v float64) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.ReverseMinSpeedKmh = &v }
+}
+
+func WithReverseTurnDetection(v bool) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.ReverseTurnDetection = &v }
+}
+
+func WithReverseTurnSampleWindow(n int) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.ReverseTurnSampleWindow = &n }
+}
+
+func WithReverseTurnMinMovementMeter(m float64) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.ReverseTurnMinMovementMeter = &m }
+}
+
+func WithReverseTurnMinMovementAngleDegree(v float64) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.ReverseTurnMinMovementAngleDegree = &v }
+}
+
+func WithReverseTurnCumulativeAngleDegree(v float64) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.ReverseTurnCumulativeAngleDegree = &v }
+}
+
+func WithReverseTurnRouteOppositionDegree(v float64) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.ReverseTurnRouteOppositionDegree = &v }
+}
+
+func WithSegmentSequenceValidation(v bool) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.SegmentSequenceValidation = &v }
+}
+
+func WithSegmentJumpRecoverySamples(n int) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.SegmentJumpRecoverySamples = &n }
+}
+
+func WithSegmentJumpRecoveryMinConfidence(v float64) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.SegmentJumpRecoveryMinConfidence = &v }
+}
+
+func WithSegmentJumpRecoveryMaxDistanceMeter(m float64) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.SegmentJumpRecoveryMaxDistanceMeter = &m }
+}
+
+func WithSegmentJumpRecoveryMaxDirectionDiffDegree(v float64) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.SegmentJumpRecoveryMaxDirectionDiffDegree = &v }
+}
+
+func WithSegmentJumpRecoveryGpsFactor(v float64) RouteSnapOption {
+	return func(p *RouteSnapParams) { p.SegmentJumpRecoveryGpsFactor = &v }
 }
 
 // DisableBackwardClamp sets ClampBackwardMinConfidence to 0 (disables post-Viterbi clamp).
@@ -545,6 +725,204 @@ func routeSnapConfig(stops []Stop, params RouteSnapParams) Config {
 	}
 	cfg.SnapDistanceResetMaxMeter = resetMax
 
+	teleport := true
+	if params.TeleportDetection != nil {
+		teleport = *params.TeleportDetection
+	}
+	cfg.TeleportDetection = teleport
+
+	teleportDist := DefaultRouteTeleportDistanceMeter
+	if params.TeleportDistanceMeter != nil {
+		teleportDist = *params.TeleportDistanceMeter
+	}
+	cfg.TeleportDistanceMeter = teleportDist
+
+	teleportTime := DefaultRouteTeleportTimeSec
+	if params.TeleportTimeSec != nil {
+		teleportTime = *params.TeleportTimeSec
+	}
+	cfg.TeleportTimeSec = teleportTime
+
+	teleportFactor := DefaultRouteTeleportSpeedMatchFactor
+	if params.TeleportSpeedMatchFactor != nil {
+		teleportFactor = *params.TeleportSpeedMatchFactor
+	}
+	cfg.TeleportSpeedMatchFactor = teleportFactor
+
+	offRoute := true
+	if params.OffRouteDetection != nil {
+		offRoute = *params.OffRouteDetection
+	}
+	cfg.OffRouteDetection = offRoute
+
+	offRouteDist := DefaultOffRouteDistanceMeter
+	if params.OffRouteDistanceMeter != nil {
+		offRouteDist = *params.OffRouteDistanceMeter
+	}
+	cfg.OffRouteDistanceMeter = offRouteDist
+
+	offRouteSamples := DefaultOffRouteConsecutiveSamples
+	if params.OffRouteConsecutiveSamples != nil {
+		offRouteSamples = *params.OffRouteConsecutiveSamples
+	}
+	cfg.OffRouteConsecutiveSamples = offRouteSamples
+
+	gpsJump := true
+	if params.GpsJumpDetection != nil {
+		gpsJump = *params.GpsJumpDetection
+	}
+	cfg.GpsJumpDetection = gpsJump
+
+	gpsJumpFactor := DefaultGpsJumpExpectedFactor
+	if params.GpsJumpExpectedFactor != nil {
+		gpsJumpFactor = *params.GpsJumpExpectedFactor
+	}
+	cfg.GpsJumpExpectedFactor = gpsJumpFactor
+
+	gpsJumpMin := DefaultGpsJumpMinExpectedMeter
+	if params.GpsJumpMinExpectedMeter != nil {
+		gpsJumpMin = *params.GpsJumpMinExpectedMeter
+	}
+	cfg.GpsJumpMinExpectedMeter = gpsJumpMin
+
+	gpsJumpWarn := DefaultGpsJumpWarningRatio
+	if params.GpsJumpWarningRatio != nil {
+		gpsJumpWarn = *params.GpsJumpWarningRatio
+	}
+	cfg.GpsJumpWarningRatio = gpsJumpWarn
+
+	gpsJumpSusp := DefaultGpsJumpSuspiciousRatio
+	if params.GpsJumpSuspiciousRatio != nil {
+		gpsJumpSusp = *params.GpsJumpSuspiciousRatio
+	}
+	cfg.GpsJumpSuspiciousRatio = gpsJumpSusp
+
+	gpsJumpReject := DefaultGpsJumpRejectRatio
+	if params.GpsJumpRejectRatio != nil {
+		gpsJumpReject = *params.GpsJumpRejectRatio
+	}
+	cfg.GpsJumpRejectRatio = gpsJumpReject
+
+	gpsJumpCount := DefaultGpsJumpCountDistanceMeter
+	if params.GpsJumpCountDistanceMeter != nil {
+		gpsJumpCount = *params.GpsJumpCountDistanceMeter
+	}
+	cfg.GpsJumpCountDistanceMeter = gpsJumpCount
+
+	reverse := true
+	if params.ReverseDetection != nil {
+		reverse = *params.ReverseDetection
+	}
+	cfg.ReverseDetection = reverse
+
+	reverseEps := DefaultReverseMeasureEpsilonMeter
+	if params.ReverseMeasureEpsilonMeter != nil {
+		reverseEps = *params.ReverseMeasureEpsilonMeter
+	}
+	cfg.ReverseMeasureEpsilonMeter = reverseEps
+
+	reverseAccept := DefaultReverseAcceptAfterSamples
+	if params.ReverseAcceptAfterSamples != nil {
+		reverseAccept = *params.ReverseAcceptAfterSamples
+	}
+	cfg.ReverseAcceptAfterSamples = reverseAccept
+
+	reverseIgnore := DefaultReverseIgnoreMeter
+	if params.ReverseIgnoreMeter != nil {
+		reverseIgnore = *params.ReverseIgnoreMeter
+	}
+	cfg.ReverseIgnoreMeter = reverseIgnore
+
+	reverseHold := DefaultReverseHoldMeter
+	if params.ReverseHoldMeter != nil {
+		reverseHold = *params.ReverseHoldMeter
+	}
+	cfg.ReverseHoldMeter = reverseHold
+
+	reverseWarn := DefaultReverseWarningMeter
+	if params.ReverseWarningMeter != nil {
+		reverseWarn = *params.ReverseWarningMeter
+	}
+	cfg.ReverseWarningMeter = reverseWarn
+
+	reverseMinSpeed := DefaultReverseMinSpeedKmh
+	if params.ReverseMinSpeedKmh != nil {
+		reverseMinSpeed = *params.ReverseMinSpeedKmh
+	}
+	cfg.ReverseMinSpeedKmh = reverseMinSpeed
+
+	reverseTurn := true
+	if params.ReverseTurnDetection != nil {
+		reverseTurn = *params.ReverseTurnDetection
+	}
+	cfg.ReverseTurnDetection = reverseTurn
+
+	reverseTurnWindow := DefaultReverseTurnSampleWindow
+	if params.ReverseTurnSampleWindow != nil {
+		reverseTurnWindow = *params.ReverseTurnSampleWindow
+	}
+	cfg.ReverseTurnSampleWindow = reverseTurnWindow
+
+	reverseTurnMove := DefaultReverseTurnMinMovementMeter
+	if params.ReverseTurnMinMovementMeter != nil {
+		reverseTurnMove = *params.ReverseTurnMinMovementMeter
+	}
+	cfg.ReverseTurnMinMovementMeter = reverseTurnMove
+
+	reverseTurnAngle := DefaultReverseTurnMinMovementAngleDegree
+	if params.ReverseTurnMinMovementAngleDegree != nil {
+		reverseTurnAngle = *params.ReverseTurnMinMovementAngleDegree
+	}
+	cfg.ReverseTurnMinMovementAngleDegree = reverseTurnAngle
+
+	reverseTurnCum := DefaultReverseTurnCumulativeAngleDegree
+	if params.ReverseTurnCumulativeAngleDegree != nil {
+		reverseTurnCum = *params.ReverseTurnCumulativeAngleDegree
+	}
+	cfg.ReverseTurnCumulativeAngleDegree = reverseTurnCum
+
+	reverseTurnOpp := DefaultReverseTurnRouteOppositionDegree
+	if params.ReverseTurnRouteOppositionDegree != nil {
+		reverseTurnOpp = *params.ReverseTurnRouteOppositionDegree
+	}
+	cfg.ReverseTurnRouteOppositionDegree = reverseTurnOpp
+
+	segSeq := true
+	if params.SegmentSequenceValidation != nil {
+		segSeq = *params.SegmentSequenceValidation
+	}
+	cfg.SegmentSequenceValidation = segSeq
+
+	segJumpSamples := DefaultSegmentJumpRecoverySamples
+	if params.SegmentJumpRecoverySamples != nil {
+		segJumpSamples = *params.SegmentJumpRecoverySamples
+	}
+	cfg.SegmentJumpRecoverySamples = segJumpSamples
+
+	segJumpConf := DefaultSegmentJumpRecoveryMinConfidence
+	if params.SegmentJumpRecoveryMinConfidence != nil {
+		segJumpConf = *params.SegmentJumpRecoveryMinConfidence
+	}
+	cfg.SegmentJumpRecoveryMinConfidence = segJumpConf
+
+	segJumpDist := DefaultSegmentJumpRecoveryMaxDistanceMeter
+	if params.SegmentJumpRecoveryMaxDistanceMeter != nil {
+		segJumpDist = *params.SegmentJumpRecoveryMaxDistanceMeter
+	}
+	cfg.SegmentJumpRecoveryMaxDistanceMeter = segJumpDist
+
+	segJumpDir := DefaultSegmentJumpRecoveryMaxDirectionDiffDegree
+	if params.SegmentJumpRecoveryMaxDirectionDiffDegree != nil {
+		segJumpDir = *params.SegmentJumpRecoveryMaxDirectionDiffDegree
+	}
+	cfg.SegmentJumpRecoveryMaxDirectionDiffDegree = segJumpDir
+
+	segJumpGps := DefaultSegmentJumpRecoveryGpsFactor
+	if params.SegmentJumpRecoveryGpsFactor != nil {
+		segJumpGps = *params.SegmentJumpRecoveryGpsFactor
+	}
+	cfg.SegmentJumpRecoveryGpsFactor = segJumpGps
+
 	return cfg
 }
 
@@ -650,6 +1028,105 @@ func mergeRouteSnapParams(base, override RouteSnapParams) RouteSnapParams {
 	}
 	if override.SnapDistanceResetMaxMeter != nil {
 		base.SnapDistanceResetMaxMeter = override.SnapDistanceResetMaxMeter
+	}
+	if override.TeleportDetection != nil {
+		base.TeleportDetection = override.TeleportDetection
+	}
+	if override.TeleportDistanceMeter != nil {
+		base.TeleportDistanceMeter = override.TeleportDistanceMeter
+	}
+	if override.TeleportTimeSec != nil {
+		base.TeleportTimeSec = override.TeleportTimeSec
+	}
+	if override.TeleportSpeedMatchFactor != nil {
+		base.TeleportSpeedMatchFactor = override.TeleportSpeedMatchFactor
+	}
+	if override.OffRouteDetection != nil {
+		base.OffRouteDetection = override.OffRouteDetection
+	}
+	if override.OffRouteDistanceMeter != nil {
+		base.OffRouteDistanceMeter = override.OffRouteDistanceMeter
+	}
+	if override.OffRouteConsecutiveSamples != nil {
+		base.OffRouteConsecutiveSamples = override.OffRouteConsecutiveSamples
+	}
+	if override.GpsJumpDetection != nil {
+		base.GpsJumpDetection = override.GpsJumpDetection
+	}
+	if override.GpsJumpExpectedFactor != nil {
+		base.GpsJumpExpectedFactor = override.GpsJumpExpectedFactor
+	}
+	if override.GpsJumpMinExpectedMeter != nil {
+		base.GpsJumpMinExpectedMeter = override.GpsJumpMinExpectedMeter
+	}
+	if override.GpsJumpWarningRatio != nil {
+		base.GpsJumpWarningRatio = override.GpsJumpWarningRatio
+	}
+	if override.GpsJumpSuspiciousRatio != nil {
+		base.GpsJumpSuspiciousRatio = override.GpsJumpSuspiciousRatio
+	}
+	if override.GpsJumpRejectRatio != nil {
+		base.GpsJumpRejectRatio = override.GpsJumpRejectRatio
+	}
+	if override.GpsJumpCountDistanceMeter != nil {
+		base.GpsJumpCountDistanceMeter = override.GpsJumpCountDistanceMeter
+	}
+	if override.ReverseDetection != nil {
+		base.ReverseDetection = override.ReverseDetection
+	}
+	if override.ReverseMeasureEpsilonMeter != nil {
+		base.ReverseMeasureEpsilonMeter = override.ReverseMeasureEpsilonMeter
+	}
+	if override.ReverseAcceptAfterSamples != nil {
+		base.ReverseAcceptAfterSamples = override.ReverseAcceptAfterSamples
+	}
+	if override.ReverseIgnoreMeter != nil {
+		base.ReverseIgnoreMeter = override.ReverseIgnoreMeter
+	}
+	if override.ReverseHoldMeter != nil {
+		base.ReverseHoldMeter = override.ReverseHoldMeter
+	}
+	if override.ReverseWarningMeter != nil {
+		base.ReverseWarningMeter = override.ReverseWarningMeter
+	}
+	if override.ReverseMinSpeedKmh != nil {
+		base.ReverseMinSpeedKmh = override.ReverseMinSpeedKmh
+	}
+	if override.ReverseTurnDetection != nil {
+		base.ReverseTurnDetection = override.ReverseTurnDetection
+	}
+	if override.ReverseTurnSampleWindow != nil {
+		base.ReverseTurnSampleWindow = override.ReverseTurnSampleWindow
+	}
+	if override.ReverseTurnMinMovementMeter != nil {
+		base.ReverseTurnMinMovementMeter = override.ReverseTurnMinMovementMeter
+	}
+	if override.ReverseTurnMinMovementAngleDegree != nil {
+		base.ReverseTurnMinMovementAngleDegree = override.ReverseTurnMinMovementAngleDegree
+	}
+	if override.ReverseTurnCumulativeAngleDegree != nil {
+		base.ReverseTurnCumulativeAngleDegree = override.ReverseTurnCumulativeAngleDegree
+	}
+	if override.ReverseTurnRouteOppositionDegree != nil {
+		base.ReverseTurnRouteOppositionDegree = override.ReverseTurnRouteOppositionDegree
+	}
+	if override.SegmentSequenceValidation != nil {
+		base.SegmentSequenceValidation = override.SegmentSequenceValidation
+	}
+	if override.SegmentJumpRecoverySamples != nil {
+		base.SegmentJumpRecoverySamples = override.SegmentJumpRecoverySamples
+	}
+	if override.SegmentJumpRecoveryMinConfidence != nil {
+		base.SegmentJumpRecoveryMinConfidence = override.SegmentJumpRecoveryMinConfidence
+	}
+	if override.SegmentJumpRecoveryMaxDistanceMeter != nil {
+		base.SegmentJumpRecoveryMaxDistanceMeter = override.SegmentJumpRecoveryMaxDistanceMeter
+	}
+	if override.SegmentJumpRecoveryMaxDirectionDiffDegree != nil {
+		base.SegmentJumpRecoveryMaxDirectionDiffDegree = override.SegmentJumpRecoveryMaxDirectionDiffDegree
+	}
+	if override.SegmentJumpRecoveryGpsFactor != nil {
+		base.SegmentJumpRecoveryGpsFactor = override.SegmentJumpRecoveryGpsFactor
 	}
 	return base
 }

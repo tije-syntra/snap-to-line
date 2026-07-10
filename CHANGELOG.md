@@ -1,6 +1,14 @@
 # Changelog
 
-## Unreleased
+## v1.3.0 — 2026-07-10
+
+- feat: teleport detection — freeze snap on implausible GPS movement within a short time window (`TeleportDetection`, default on in `RouteSnapConfig`)
+- feat: GPS jump detection — classify expected-vs-actual movement ratio and hold on reject (`GpsJumpDetection`, `GpsJumpRatio`, `GpsJumpLevel`, `JumpCount`)
+- feat: consecutive off-route detection — flag off-route after sustained lateral distance (`OffRouteDetection`, `OffRouteCount`)
+- feat: reverse detection — tolerate small backward measure regression, hold until turnaround validated (`ReverseDetection`, `ReverseCount`, `TurnaroundValidated`)
+- feat: segment sequence validation — reject skipped segment order jumps with recovery path (`SegmentSequenceValidation`, `SegmentJumpCount`, `SkippedSegmentCount`)
+- feat: `RouteSnapConfig` options and defaults for all new detection modules (enabled by default for live routes)
+- test: `teleport_detection_test`, `gps_jump_detection_test`, `off_route_detection_test`, `reverse_detection_test`, `segment_sequence_validation_test`
 
 ## v1.2.0 — 2026-07-06
 

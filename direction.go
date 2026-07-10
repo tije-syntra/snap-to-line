@@ -57,7 +57,15 @@ func resolveBusBearing(point GPSPoint, prev *GPSPoint, cfg Config) (float64, boo
 	return BearingBetween(prev.Point, point.Point), true
 }
 
-func shouldWeakenDirectionValidation(point GPSPoint, prev *GPSPoint, cfg Config) bool {
+func ShouldWeakenDirectionValidation(point GPSPoint, prev *GPSPoint, cfg Config, turnaroundValidated bool) bool {
+	return shouldWeakenDirectionValidation(point, prev, cfg, turnaroundValidated)
+}
+
+func shouldWeakenDirectionValidation(point GPSPoint, prev *GPSPoint, cfg Config, turnaroundValidated bool) bool {
+	if turnaroundValidated && cfg.ReverseDetection {
+		return true
+	}
+
 	const lowSpeedKmh = 3.0
 
 	// Speed is km/h (live GPS feeds). Treat stopped / crawl as dwell.

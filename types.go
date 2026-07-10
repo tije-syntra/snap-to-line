@@ -67,6 +67,17 @@ type SnapResult struct {
 	HeldReason  string
 	// BranchLocked is true when snap is pinned to a branch on folded segment geometry.
 	BranchLocked bool
+	// OffRouteCount is consecutive samples beyond OffRouteDistanceMeter (when OffRouteDetection is on).
+	OffRouteCount int
+	// JumpCount counts GPS movements exceeding GpsJumpCountDistanceMeter.
+	JumpCount    int
+	GpsJumpRatio float64
+	GpsJumpLevel string
+	// ReverseCount counts consecutive backward measure samples.
+	ReverseCount        int
+	TurnaroundValidated bool
+	SegmentJumpCount    int
+	SkippedSegmentCount int
 }
 
 type Config struct {
@@ -199,6 +210,49 @@ type Config struct {
 
 	// SnapDistanceResetMaxMeter immediate reset when raw-to-snap distance reaches this (default 100, 0 = off).
 	SnapDistanceResetMaxMeter float64
+
+	// TeleportDetection rejects implausibly fast GPS movement within TeleportTimeSec.
+	TeleportDetection        bool
+	TeleportDistanceMeter    float64
+	TeleportTimeSec          float64
+	TeleportSpeedMatchFactor float64
+
+	// OffRouteDetection flags off-route after OffRouteConsecutiveSamples beyond OffRouteDistanceMeter.
+	OffRouteDetection          bool
+	OffRouteDistanceMeter      float64
+	OffRouteConsecutiveSamples int
+
+	// GpsJumpDetection classifies GPS jumps by expected-vs-actual distance ratio.
+	GpsJumpDetection          bool
+	GpsJumpExpectedFactor     float64
+	GpsJumpMinExpectedMeter   float64
+	GpsJumpWarningRatio       float64
+	GpsJumpSuspiciousRatio    float64
+	GpsJumpRejectRatio        float64
+	GpsJumpCountDistanceMeter float64
+
+	// ReverseDetection holds backward measure movement with turnaround validation.
+	ReverseDetection                  bool
+	ReverseMeasureEpsilonMeter        float64
+	ReverseAcceptAfterSamples         int
+	ReverseIgnoreMeter                float64
+	ReverseHoldMeter                  float64
+	ReverseWarningMeter               float64
+	ReverseMinSpeedKmh                float64
+	ReverseTurnDetection              bool
+	ReverseTurnSampleWindow           int
+	ReverseTurnMinMovementMeter       float64
+	ReverseTurnMinMovementAngleDegree float64
+	ReverseTurnCumulativeAngleDegree  float64
+	ReverseTurnRouteOppositionDegree  float64
+
+	// SegmentSequenceValidation rejects or recovers invalid segment order jumps.
+	SegmentSequenceValidation                 bool
+	SegmentJumpRecoverySamples                int
+	SegmentJumpRecoveryMinConfidence          float64
+	SegmentJumpRecoveryMaxDistanceMeter       float64
+	SegmentJumpRecoveryMaxDirectionDiffDegree float64
+	SegmentJumpRecoveryGpsFactor              float64
 }
 
 func DefaultConfig() Config {

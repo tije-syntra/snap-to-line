@@ -24,6 +24,9 @@ func TestWildGPSJumpFreezesBackwardSnap(t *testing.T) {
 
 	cfg := snaptoline.RouteSnapConfig(stops,
 		snaptoline.WithMeasureRegressionTolerance(10),
+		snaptoline.WithTeleportDetection(false),
+		snaptoline.WithGpsJumpDetection(false),
+		snaptoline.WithReverseDetection(false),
 	)
 	snapper, err := snaptoline.NewSnapper(line, stops, cfg)
 	require.NoError(t, err)
@@ -62,6 +65,9 @@ func TestWildGPSJumpCapsForwardAdvance(t *testing.T) {
 	cfg := snaptoline.RouteSnapConfig(stops,
 		snaptoline.WithMeasureRegressionTolerance(10),
 		snaptoline.WithMaxForwardSnapMeter(50),
+		snaptoline.WithTeleportDetection(false),
+		snaptoline.WithGpsJumpDetection(false),
+		snaptoline.WithReverseDetection(false),
 	)
 	snapper, err := snaptoline.NewSnapper(line, stops, cfg)
 	require.NoError(t, err)

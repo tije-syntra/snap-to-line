@@ -395,4 +395,4 @@ MIT License — see [LICENSE](LICENSE). Redistributable with minimal restriction
 
 ## Status
 
-**v1.2.0** — stable. Breaking API changes will require a new major version (`/v2` module path per Go convention).
+**v1.3.0** — stable. Breaking API changes will require a new major version (`/v2` module path per Go convention).
