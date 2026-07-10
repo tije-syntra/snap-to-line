@@ -207,6 +207,7 @@ func (s *Snapper) finishSnap(candidates []Candidate, best *Candidate, result *Sn
 	}
 	s.updateBranchLock(best, point)
 	s.annotateBranchLock(result)
+	s.annotateStopContext(result, point)
 	s.commitSnapState(candidates, best, point, result)
 	return result
 }

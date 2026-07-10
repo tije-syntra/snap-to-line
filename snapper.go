@@ -79,6 +79,7 @@ func (s *Snapper) Snap(point GPSPoint) (*SnapResult, error) {
 			IsOffRoute:     true,
 			RejectedReason: "no candidates within max snap distance",
 		})
+		s.annotateStopContext(offRouteResult, point)
 		return markDistanceReset(offRouteResult, distReset), nil
 	}
 
@@ -259,7 +260,7 @@ func SnapResultFromSegment(seg Segment, stops []Stop, point GPSPoint, prev *GPSP
 	tripScore := TripDirectionScore(seg.Direction, cfg.TripDirection)
 	confidence := clampConfidence(emission * dirScore * tripScore)
 
-	return &SnapResult{
+	result := &SnapResult{
 		OriginalPoint: point.Point,
 		SnappedPoint:  proj.Point,
 		SegmentID:     seg.ID,
@@ -274,4 +275,6 @@ func SnapResultFromSegment(seg Segment, stops []Stop, point GPSPoint, prev *GPSP
 		Confidence:    confidence,
 		IsOffRoute:    proj.DistanceMeter > cfg.MaxSnapDistanceMeter,
 	}
+	fillStopContext(stops, nil, point, proj.Point, absMeasure, cfg, &seg, result)
+	return result
 }

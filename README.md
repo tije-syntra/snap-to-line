@@ -343,6 +343,9 @@ Key fields returned from `Snap`:
 | `Confidence` | Combined score confidence, `0.0`–`1.0` |
 | `IsOffRoute` | `true` when no valid candidate is within range |
 | `BusBearing` / `LineBearing` / `DirectionDiff` | Bearing diagnostics |
+| `PrevStopID` / `PrevStopName` | Previous halte (v1.3.1) |
+| `CurrStopID` / `CurrStopName` | Current dwell halte; empty when en route |
+| `NextStopID` / `NextStopName` | Next upcoming halte |
 
 ### Lower-level helpers
 

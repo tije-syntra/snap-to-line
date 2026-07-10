@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.3.1 — 2026-07-10
+
+- feat: `SnapResult` prev/curr/next stop context (`PrevStopID`, `PrevStopName`, `CurrStopID`, `CurrStopName`, `NextStopID`, `NextStopName`) for downstream map/ETA consumers
+
 ## v1.3.0 — 2026-07-10
 
 - feat: teleport detection — freeze snap on implausible GPS movement within a short time window (`TeleportDetection`, default on in `RouteSnapConfig`)

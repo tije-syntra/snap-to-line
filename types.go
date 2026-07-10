@@ -54,6 +54,12 @@ type SnapResult struct {
 	SegmentOrder   int
 	Direction      DirectionType
 	NearestStopID  string
+	PrevStopID     string
+	PrevStopName   string
+	CurrStopID     string
+	CurrStopName   string
+	NextStopID     string
+	NextStopName   string
 	DistanceMeter  float64
 	Progress       float64
 	BusBearing     float64
